@@ -24,13 +24,29 @@ object Strings {
 
     const val REFERENCE_LABEL = "Reference"
     const val REFERENCE_PLACEHOLDER = "INV-2026-001"
-    const val MERCHANT_NAME_LABEL = "Your name"
+    const val REFERENCE_HELP = "Optional. Helps you match payments to invoices."
+    const val MERCHANT_NAME_LABEL = "Name payers will see"
     const val MERCHANT_NAME_PLACEHOLDER = "Shown to the payer"
+    const val MERCHANT_NAME_HELP = "Shown in the payer's app before they confirm."
+
+    const val PROXY_EXAMPLE_MOBILE = "e.g. 9123 4567"
+    const val PROXY_EXAMPLE_UEN = "e.g. 201403121W"
 
     const val ERROR_CORRECTION_LABEL = "Error correction"
 
+    const val OFFLINE_BADGE = "Offline"
+    const val LIVE_PREVIEW_CAPTION = "Live preview — updates as you type"
+
     const val PREVIEW_EMPTY = "Enter a mobile number to see your code"
     const val PREVIEW_BLOCKED = "Fix the highlighted fields to see your code"
+
+    const val SECTION_BRANDING = "Branding"
+    const val SECTION_APPEARANCE = "Appearance"
+    const val COMING_SOON = "Coming soon"
+    const val BRANDING_PREVIEW =
+        "Add a centre logo, choose module and eye styles, or add a frame. Every change is " +
+            "checked against a scan test before it can be exported — appearance never wins over " +
+            "correctness."
 
     const val PAYLOAD_PANEL = "Payload"
 
@@ -49,4 +65,5 @@ object Strings {
     fun proxyLabel(isMobile: Boolean) = if (isMobile) PROXY_LABEL_MOBILE else PROXY_LABEL_UEN
     fun proxyPlaceholder(isMobile: Boolean) =
         if (isMobile) PROXY_PLACEHOLDER_MOBILE else PROXY_PLACEHOLDER_UEN
+    fun proxyExample(isMobile: Boolean) = if (isMobile) PROXY_EXAMPLE_MOBILE else PROXY_EXAMPLE_UEN
 }

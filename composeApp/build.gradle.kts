@@ -53,6 +53,7 @@ kotlin {
             implementation(compose.runtime)
             implementation(compose.foundation)
             implementation(compose.material3)
+            implementation(compose.materialIconsExtended)
             implementation(compose.ui)
             implementation(compose.components.resources)
 
@@ -66,10 +67,16 @@ kotlin {
         androidMain.dependencies {
             implementation(compose.preview)
             implementation(libs.androidx.activity.compose)
+            // Same fix as desktopMain: without this Dispatchers.Main doesn't resolve and
+            // viewModelScope.launch() throws on the first UI intent.
+            implementation(libs.kotlinx.coroutines.android)
         }
         val desktopMain by getting
         desktopMain.dependencies {
             implementation(compose.desktop.currentOs)
+            // Without this, Dispatchers.Main doesn't exist on the JVM/Swing target and
+            // viewModelScope.launch() throws as soon as any UI intent fires.
+            implementation(libs.kotlinx.coroutines.swing)
         }
         // Renders the real Compose renderer offscreen and decodes the result, so the
         // preview pipeline is verified end to end rather than by a stand-in. Test only.
