@@ -2,10 +2,19 @@
 kotlin = "2.2.20"
 agp = "8.11.2"
 compose = "1.9.1"
-kotlinx-datetime = "0.6.2"
+# Compose Multiplatform pulls 0.7.1 transitively and would upgrade anything lower, so
+# this tracks it deliberately rather than being silently overridden. Note 0.7.x moved
+# Clock to kotlin.time; kotlinx.datetime still owns LocalDate and friends.
+kotlinx-datetime = "0.7.1"
 qrcode-kotlin = "4.5.0"
 emv-qrcode = "0.1.5"
 zxing = "3.5.3"
+# Must track the Compose Multiplatform version: lifecycle 2.11.0 pulls androidx compose
+# runtime 1.11.x, which CMP 1.9.1 does not provide, and the app dies at first
+# composition with "CompositionLocal LocalHostDefaultProvider not present".
+lifecycle = "2.9.6"
+coroutines = "1.10.2"
+androidx-activity = "1.11.0"
 android-compileSdk = "36"
 android-minSdk = "26"
 android-targetSdk = "36"
@@ -14,6 +23,12 @@ android-targetSdk = "36"
 kotlinx-datetime = { module = "org.jetbrains.kotlinx:kotlinx-datetime", version.ref = "kotlinx-datetime" }
 qrcode-kotlin = { module = "io.github.g0dkar:qrcode-kotlin", version.ref = "qrcode-kotlin" }
 # JVM-test-only decoder for TC-03 render/decode round-trips. Never shipped in the app.
+lifecycle-viewmodel-compose = { module = "org.jetbrains.androidx.lifecycle:lifecycle-viewmodel-compose", version.ref = "lifecycle" }
+lifecycle-runtime-compose = { module = "org.jetbrains.androidx.lifecycle:lifecycle-runtime-compose", version.ref = "lifecycle" }
+androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "androidx-activity" }
+
+kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "coroutines" }
+
 zxing-core = { module = "com.google.zxing:core", version.ref = "zxing" }
 zxing-javase = { module = "com.google.zxing:javase", version.ref = "zxing" }
 

@@ -1,5 +1,7 @@
 rootProject.name = "qr-studio-sg"
 
+enableFeaturePreview("TYPESAFE_PROJECT_ACCESSORS")
+
 pluginManagement {
     repositories {
         google {
@@ -24,3 +26,4 @@ dependencyResolutionManagement {
 
 include(":payload")
 include(":qr")
+include(":composeApp")

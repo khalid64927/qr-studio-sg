@@ -1,0 +1,113 @@
+import org.jetbrains.compose.desktop.application.dsl.TargetFormat
+import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
+import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+
+plugins {
+    alias(libs.plugins.kotlin.multiplatform)
+    alias(libs.plugins.android.application)
+    alias(libs.plugins.jetbrains.compose)
+    alias(libs.plugins.compose.compiler)
+}
+
+kotlin {
+    androidTarget {
+        @OptIn(ExperimentalKotlinGradlePluginApi::class)
+        compilerOptions { jvmTarget.set(JvmTarget.JVM_17) }
+    }
+
+    // §9.1 lists iosX64 as a target. It is dropped *here* because
+    // org.jetbrains.androidx.lifecycle stopped publishing iosX64 artifacts after
+    // 2.10.0-alpha07, and a payment app should not ship on an alpha dependency.
+    //
+    // iosX64 is the Intel iOS simulator: devices use iosArm64 and modern simulators use
+    // iosSimulatorArm64, so this costs nothing except building on an Intel Mac. v1 does
+    // not distribute iOS at all (§12.3), which makes the trade cheaper still. The
+    // :payload and :qr modules keep iosX64 — they have no such dependency.
+    //
+    // To restore it, replace the lifecycle ViewModel with a hand-rolled state holder.
+    listOf(iosArm64(), iosSimulatorArm64()).forEach { iosTarget ->
+        iosTarget.binaries.framework {
+            baseName = "ComposeApp"
+            isStatic = true
+        }
+    }
+
+    jvm("desktop")
+
+    @OptIn(ExperimentalWasmDsl::class)
+    wasmJs {
+        // CD-05: GitHub Pages serves project pages from /<repo-name>/, so the bundle
+        // must not assume it is at the domain root.
+        browser {
+            commonWebpackConfig { outputFileName = "composeApp.js" }
+        }
+        binaries.executable()
+    }
+
+    sourceSets {
+        commonMain.dependencies {
+            implementation(projects.payload)
+            implementation(projects.qr)
+
+            implementation(compose.runtime)
+            implementation(compose.foundation)
+            implementation(compose.material3)
+            implementation(compose.ui)
+            implementation(compose.components.resources)
+
+            implementation(libs.lifecycle.viewmodel.compose)
+            implementation(libs.lifecycle.runtime.compose)
+            implementation(libs.kotlinx.datetime)
+        }
+        commonTest.dependencies {
+            implementation(kotlin("test"))
+        }
+        androidMain.dependencies {
+            implementation(compose.preview)
+            implementation(libs.androidx.activity.compose)
+        }
+        val desktopMain by getting
+        desktopMain.dependencies {
+            implementation(compose.desktop.currentOs)
+        }
+        // Renders the real Compose renderer offscreen and decodes the result, so the
+        // preview pipeline is verified end to end rather than by a stand-in. Test only.
+        val desktopTest by getting
+        desktopTest.dependencies {
+            implementation(compose.desktop.currentOs)
+            implementation(libs.zxing.core)
+            implementation(libs.zxing.javase)
+            implementation(libs.kotlinx.coroutines.test)
+        }
+    }
+}
+
+android {
+    namespace = "sg.qrstudio.app"
+    compileSdk = libs.versions.android.compileSdk.get().toInt()
+
+    defaultConfig {
+        applicationId = "sg.qrstudio.app"
+        minSdk = libs.versions.android.minSdk.get().toInt()
+        targetSdk = libs.versions.android.targetSdk.get().toInt()
+        versionCode = 1
+        versionName = "0.1.0"
+    }
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+    buildFeatures { compose = true }
+}
+
+compose.desktop {
+    application {
+        mainClass = "sg.qrstudio.app.MainKt"
+        nativeDistributions {
+            targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
+            packageName = "QR Studio SG"
+            packageVersion = "1.0.0"
+        }
+    }
+}

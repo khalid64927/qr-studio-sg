@@ -5,8 +5,9 @@ Compose Multiplatform codebase targeting Android, iOS, desktop and the web.
 
 No accounts. No backend. No persistence. Everything runs on-device and offline.
 
-> **Status: in development.** The payload core is complete and tested. The QR renderer,
-> branding and export pipeline are not built yet. See [Roadmap](#roadmap).
+> **Status: in development.** The payload core, QR encoder and Compose renderer are
+> complete and tested, and the desktop app runs with a live preview. Branding, appearance
+> controls and export are not built yet. See [Roadmap](#roadmap).
 
 ---
 
@@ -36,11 +37,12 @@ SGQR label from your bank or acquirer rather than self-generating one.
 
 ```
 payload/      EMVCo TLV builder, CRC-16, validators, parser  — pure Kotlin, no UI deps
-composeApp/   (not yet built) QR encoding, rendering, branding, export, UI
+qr/           QR encoder, module matrix, mask selection       — pure Kotlin, no UI deps
+composeApp/   Compose UI, renderer, live preview  (export and branding still to come)
 ```
 
-`payload/` is a standalone Gradle module with no dependency on the app. It can be
-extracted and published as a library without touching anything else.
+`payload/` and `qr/` are standalone Gradle modules with no dependency on the app. Either
+can be extracted and published as a library without touching anything else.
 
 ## The payload core
 
@@ -73,7 +75,22 @@ Run them:
 ```bash
 ./gradlew :payload:jvmTest                 # includes the TC-04 cross-check
 ./gradlew :payload:iosSimulatorArm64Test   # the same suite on Kotlin/Native
+./gradlew :qr:jvmTest                      # encode -> render -> decode, via ZXing
+./gradlew :composeApp:desktopTest          # renders the real composable, then decodes it
+./gradlew :composeApp:run                  # the desktop app, with live preview
 ```
+
+### The QR encoder
+
+`qrcode-kotlin` does the Reed-Solomon and data placement. Two things it does not do are
+done here: it hardcodes mask pattern 000 and performs no mask selection, so all eight are
+scored with the ISO/IEC 18004 penalty rules and the best is kept; and its output carries
+no quiet zone, so the mandatory four-module border is added and cannot be reduced.
+
+Two of its traps are guarded by tests. Its `ErrorCorrectionLevel` names mislead — `HIGH`
+is really Q and `VERY_HIGH` is the real H, so a forced "H" for a logo would silently get
+25% recovery instead of 30%. And its default symbol sizing is computed from the *inferred*
+data type while we force byte mode, which overflows for all-uppercase payloads.
 
 ### Deviations from the reference implementation
 
@@ -102,8 +119,8 @@ testing.
 - [x] Payload core: TLV builder, CRC-16, validation, parser, anti-vector guard
 - [x] Independent cross-check (TC-04) and Kotlin/Native verification
 - [x] CI across Android, JVM, Wasm and iOS
-- [ ] QR encoding and module matrix
-- [ ] Compose renderer and live preview
+- [x] QR encoding and module matrix, with ISO 18004 mask selection
+- [x] Compose renderer and live preview, verified by decoding the rendered output
 - [ ] Input UI with validation surfacing
 - [ ] Appearance and colour-contrast safety
 - [ ] Branding logo composition
