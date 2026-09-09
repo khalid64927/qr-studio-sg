@@ -6,8 +6,10 @@ Compose Multiplatform codebase targeting Android, iOS, desktop and the web.
 No accounts. No backend. No persistence. Everything runs on-device and offline.
 
 > **Status: in development.** The payload core, QR encoder and Compose renderer are
-> complete and tested, and the desktop app runs with a live preview. Branding, appearance
-> controls and export are not built yet. See [Roadmap](#roadmap).
+> complete and tested, and the desktop app runs with a live preview. The web (Wasm) build
+> compiles and serves, but its interactivity has not been confirmed in an ordinary
+> browser — see the note under [Running the web target](#running-the-web-wasm-target).
+> Branding, appearance controls and export are not built yet. See [Roadmap](#roadmap).
 
 ---
 
@@ -79,6 +81,29 @@ Run them:
 ./gradlew :composeApp:desktopTest          # renders the real composable, then decodes it
 ./gradlew :composeApp:run                  # the desktop app, with live preview
 ```
+
+### Running the web (Wasm) target
+
+```bash
+./gradlew :composeApp:wasmJsBrowserDevelopmentRun   # dev server, hot reload, http://localhost:8082
+./gradlew :composeApp:wasmJsBrowserDistribution      # production bundle, for GitHub Pages (CD-03)
+```
+
+The production bundle lands in `composeApp/build/dist/wasmJs/productionExecutable/` and
+can be served with anything static, e.g. `python3 -m http.server` from that directory.
+
+There is no separate Kotlin/JS target — `wasmJs()` is the only web target this project
+builds (§9.1 specifies Wasm, not plain JS), and it is what those two tasks produce.
+
+> **Known issue, unresolved:** in this repository's automated browser-testing session,
+> the compiled Wasm app loaded and painted a correct first frame with zero console errors,
+> but the `<canvas id="ComposeTarget">` reported a 0×0 layout box to DOM measurement and
+> did not visibly respond to clicks or scrolling, on both the dev server and the
+> production build. Compose Web for Wasm renders through an `OffscreenCanvas`, which is a
+> combination known to confuse some Chromium automation paths — so this may be an artifact
+> of that automated session rather than a real defect, but it was **not verified working
+> in an ordinary browser tab**. Confirm interactivity manually (open the dev server URL in
+> a normal Chrome window and try entering a mobile number) before trusting the web build.
 
 ### The QR encoder
 
