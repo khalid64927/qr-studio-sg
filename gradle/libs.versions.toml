@@ -5,6 +5,7 @@ compose = "1.9.1"
 kotlinx-datetime = "0.6.2"
 qrcode-kotlin = "4.5.0"
 emv-qrcode = "0.1.5"
+zxing = "3.5.3"
 android-compileSdk = "36"
 android-minSdk = "26"
 android-targetSdk = "36"
@@ -12,6 +13,10 @@ android-targetSdk = "36"
 [libraries]
 kotlinx-datetime = { module = "org.jetbrains.kotlinx:kotlinx-datetime", version.ref = "kotlinx-datetime" }
 qrcode-kotlin = { module = "io.github.g0dkar:qrcode-kotlin", version.ref = "qrcode-kotlin" }
+# JVM-test-only decoder for TC-03 render/decode round-trips. Never shipped in the app.
+zxing-core = { module = "com.google.zxing:core", version.ref = "zxing" }
+zxing-javase = { module = "com.google.zxing:javase", version.ref = "zxing" }
+
 # JVM-test-only independent parser (TC-04). Never shipped in the app.
 emv-qrcode = { module = "com.github.mvallim:emv-qrcode", version.ref = "emv-qrcode" }
 
