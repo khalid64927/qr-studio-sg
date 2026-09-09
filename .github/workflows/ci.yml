@@ -1,0 +1,79 @@
+# CD-01: build every target and run the test suites on each push and PR.
+# A red build blocks merge.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # The payment-critical core. Runs first and cheapest: if the payload is wrong,
+  # nothing else matters. Includes the TC-04 independent parser cross-check.
+  payload:
+    name: Payload (JVM tests + TC-04 cross-check)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      # CD-08: keep build times reasonable.
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Run payload tests
+        run: ./gradlew :payload:jvmTest --stacktrace
+      - name: Upload test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: payload-test-report
+          path: payload/build/reports/tests/
+
+  # CD-01: Android, JVM and Wasm all compile from the one codebase.
+  build:
+    name: Build (Android / JVM / Wasm)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Compile Android, JVM and Wasm targets
+        run: |
+          ./gradlew \
+            :payload:compileDebugKotlinAndroid \
+            :payload:compileReleaseKotlinAndroid \
+            :payload:compileKotlinJvm \
+            :payload:compileKotlinWasmJs \
+            --stacktrace
+
+  # CD-02: iOS is not distributed in v1, but it is compiled on every change so it
+  # does not silently rot. macOS runners are free on public repositories.
+  ios:
+    name: iOS compile + Native tests
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Compile iOS targets
+        run: |
+          ./gradlew \
+            :payload:compileKotlinIosArm64 \
+            :payload:compileKotlinIosSimulatorArm64 \
+            :payload:compileKotlinIosX64 \
+            --stacktrace
+      # Runs the shared commonTest suite on Kotlin/Native, not just the JVM, so a
+      # platform-specific divergence in the payload builder cannot reach a release.
+      - name: Run payload tests on Kotlin/Native
+        run: ./gradlew :payload:iosSimulatorArm64Test --stacktrace

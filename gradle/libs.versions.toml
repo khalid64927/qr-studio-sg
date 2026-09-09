@@ -1,0 +1,23 @@
+[versions]
+kotlin = "2.2.20"
+agp = "8.11.2"
+compose = "1.9.1"
+kotlinx-datetime = "0.6.2"
+qrcode-kotlin = "4.5.0"
+emv-qrcode = "0.1.5"
+android-compileSdk = "36"
+android-minSdk = "26"
+android-targetSdk = "36"
+
+[libraries]
+kotlinx-datetime = { module = "org.jetbrains.kotlinx:kotlinx-datetime", version.ref = "kotlinx-datetime" }
+qrcode-kotlin = { module = "io.github.g0dkar:qrcode-kotlin", version.ref = "qrcode-kotlin" }
+# JVM-test-only independent parser (TC-04). Never shipped in the app.
+emv-qrcode = { module = "com.github.mvallim:emv-qrcode", version.ref = "emv-qrcode" }
+
+[plugins]
+kotlin-multiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
+android-library = { id = "com.android.library", version.ref = "agp" }
+android-application = { id = "com.android.application", version.ref = "agp" }
+jetbrains-compose = { id = "org.jetbrains.compose", version.ref = "compose" }
+compose-compiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }

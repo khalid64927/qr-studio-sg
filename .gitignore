@@ -1,0 +1,29 @@
+# Gradle
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+
+# Machine-specific. Never committed: this repo is public.
+local.properties
+
+# IDE
+.idea/
+*.iml
+.kotlin/
+
+# macOS
+.DS_Store
+
+# Kotlin/Native & JS
+kotlin-js-store/
+*.klib
+
+# Xcode
+xcuserdata/
+*.xcworkspace/xcuserdata/
+DerivedData/
+
+# Signing material. CD-04: keystores and passwords live in GitHub Actions secrets only.
+*.jks
+*.keystore
+keystore.properties
