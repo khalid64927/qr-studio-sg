@@ -18,11 +18,13 @@ actual fun exportQrAsPng(
 ) {
     try {
         // Show file save dialog
-        val fileDialog = java.awt.FileDialog(null, "Save QR Code as PNG", 1) // 1 = SAVE mode
+        val fileDialog = java.awt.FileDialog(null as java.awt.Frame?, "Save QR Code as PNG", 1) // 1 = SAVE
         fileDialog.file = fileName
         fileDialog.isVisible = true
 
-        if (fileDialog.file != null) {
+        val directory = fileDialog.directory
+        val selectedFile = fileDialog.file
+        if (directory != null && selectedFile != null) {
             // Create image and render QR code
             val bufferedImage = java.awt.image.BufferedImage(pixelSize, pixelSize, java.awt.image.BufferedImage.TYPE_INT_RGB)
             val graphics = bufferedImage.createGraphics()
@@ -55,9 +57,9 @@ actual fun exportQrAsPng(
             graphics.dispose()
 
             // Save PNG
-            val file = File(fileDialog.directory, fileDialog.file)
-            ImageIO.write(bufferedImage, "png", file)
-            println("✓ QR code saved to: ${file.absolutePath}")
+            val outputFile = File(directory, selectedFile)
+            ImageIO.write(bufferedImage, "png", outputFile)
+            println("✓ QR code saved to: ${outputFile.absolutePath}")
         }
     } catch (e: Exception) {
         println("❌ Export failed: ${e.message}")
@@ -73,11 +75,13 @@ actual fun exportQrAsSvg(
 ) {
     try {
         // Show file save dialog
-        val fileDialog = java.awt.FileDialog(null, "Save QR Code as SVG", 1) // 1 = SAVE mode
+        val fileDialog = java.awt.FileDialog(null as java.awt.Frame?, "Save QR Code as SVG", 1) // 1 = SAVE
         fileDialog.file = fileName
         fileDialog.isVisible = true
 
-        if (fileDialog.file != null) {
+        val directory = fileDialog.directory
+        val selectedFile = fileDialog.file
+        if (directory != null && selectedFile != null) {
             // Generate SVG as text
             val moduleSize = 10 // pixels per module in SVG
             val size = matrix.size * moduleSize
@@ -106,9 +110,9 @@ actual fun exportQrAsSvg(
             svg.append("""</svg>""")
 
             // Save SVG
-            val file = File(fileDialog.directory, fileDialog.file)
-            file.writeText(svg.toString())
-            println("✓ QR code SVG saved to: ${file.absolutePath}")
+            val outputFile = File(directory, selectedFile)
+            outputFile.writeText(svg.toString())
+            println("✓ QR code SVG saved to: ${outputFile.absolutePath}")
         }
     } catch (e: Exception) {
         println("❌ Export failed: ${e.message}")
