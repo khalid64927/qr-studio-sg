@@ -226,6 +226,16 @@ fun QrStudioScreen(
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
             )
+
+            OutlinedTextField(
+                value = state.expiryDate,
+                onValueChange = { onIntent(QrStudioIntent.ExpiryDateChanged(it)) },
+                label = { Text("QR Expiry Date (Optional)") },
+                placeholder = { Text("YYYY-MM-DD") },
+                supportingText = { Text("Leave blank for no expiry") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+            )
         }
 
         ExpandableSection(

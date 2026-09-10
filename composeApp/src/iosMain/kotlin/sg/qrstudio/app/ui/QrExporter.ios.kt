@@ -87,10 +87,16 @@ actual fun exportQrAsSvg(
 
         val svg = StringBuilder()
         svg.append("""<?xml version="1.0" encoding="UTF-8"?>""").append("\n")
-        svg.append("""<svg xmlns="http://www.w3.org/2000/svg" width="$size" height="$size" viewBox="0 0 $size $size">""").append("\n")
+        svg.append("""<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="$size" height="$size" viewBox="0 0 $size $size">""").append("\n")
 
         val bgHex = appearance.background.toHexColor()
         svg.append("""  <rect width="$size" height="$size" fill="$bgHex"/>""").append("\n")
+
+        // Compute logo area if enabled
+        val logoSize = if (logo.enabled) (size * logo.clampedSizeFraction()).toInt() else 0
+        val logoLeft = (size - logoSize) / 2
+        val logoTop = (size - logoSize) / 2
+        val padding = 5
 
         val fgHex = appearance.foreground.toHexColor()
         svg.append("""  <g fill="$fgHex">""").append("\n")
@@ -99,11 +105,35 @@ actual fun exportQrAsSvg(
                 if (matrix.isDark(col, row)) {
                     val x = col * moduleSize
                     val y = row * moduleSize
+
+                    // Skip modules within logo area
+                    if (logo.enabled && isWithinLogoAreaSvg(x, y, moduleSize, logoLeft, logoTop, logoSize, padding)) {
+                        continue
+                    }
+
                     svg.append("""    <rect x="$x" y="$y" width="$moduleSize" height="$moduleSize"/>""").append("\n")
                 }
             }
         }
         svg.append("""  </g>""").append("\n")
+
+        // Draw logo backing plate if enabled
+        if (logo.enabled) {
+            when (logo.shape) {
+                sg.qrstudio.qr.LogoShape.CIRCLE -> {
+                    val radius = logoSize / 2
+                    svg.append("""  <circle cx="${logoLeft + radius}" cy="${logoTop + radius}" r="$radius" fill="$bgHex"/>""").append("\n")
+                }
+                sg.qrstudio.qr.LogoShape.ROUNDED -> {
+                    val radius = (logoSize * 0.2).toInt()
+                    svg.append("""  <rect x="$logoLeft" y="$logoTop" width="$logoSize" height="$logoSize" rx="$radius" fill="$bgHex"/>""").append("\n")
+                }
+                sg.qrstudio.qr.LogoShape.SQUARE -> {
+                    svg.append("""  <rect x="$logoLeft" y="$logoTop" width="$logoSize" height="$logoSize" fill="$bgHex"/>""").append("\n")
+                }
+            }
+        }
+
         svg.append("""</svg>""")
 
         NSFileManager.defaultManager().createFileAtPath(
@@ -126,4 +156,19 @@ private fun sg.qrstudio.qr.Contrast.Rgb.toHexColor(): String {
 
 private fun ByteArray.toNSData(): platform.Foundation.NSData {
     return platform.Foundation.NSData(bytes = this.toUByteArray().toCValues().ptr, length = this.size.toULong())
+}
+
+private fun isWithinLogoAreaSvg(
+    moduleX: Int,
+    moduleY: Int,
+    moduleSize: Int,
+    logoLeft: Int,
+    logoTop: Int,
+    logoSize: Int,
+    padding: Int,
+): Boolean {
+    val cx = moduleX + moduleSize / 2
+    val cy = moduleY + moduleSize / 2
+    return cx in (logoLeft - padding)..(logoLeft + logoSize + padding) &&
+        cy in (logoTop - padding)..(logoTop + logoSize + padding)
 }

@@ -103,7 +103,7 @@ internal fun DrawScope.drawQrMatrix(
     val logoSize = if (logo.enabled) rendered * logo.clampedSizeFraction() else 0f
     val logoLeft = originX + (rendered - logoSize) / 2f
     val logoTop = originY + (rendered - logoSize) / 2f
-    val padding = modulePixels * 0.6f // FR-308: 4-8px-equivalent padding around the plate
+    val padding = 5f // 5dp padding around the logo backing plate
 
     for (row in 0 until matrix.size) {
         for (column in 0 until matrix.size) {
@@ -188,8 +188,8 @@ private fun DrawScope.drawLogoImage(
         )
     }
 
-    // Calculate scaled image size maintaining aspect ratio, with padding for safe area
-    val padding = size * 0.1f // 10% padding around edges
+    // Calculate scaled image size maintaining aspect ratio, with 5dp padding for safe area
+    val padding = 5f // 5dp padding around image edges
     val availableSize = size - (padding * 2)
     val imageAspectRatio = image.width.toFloat() / image.height
     val (scaledWidth, scaledHeight) = if (imageAspectRatio > 1f) {

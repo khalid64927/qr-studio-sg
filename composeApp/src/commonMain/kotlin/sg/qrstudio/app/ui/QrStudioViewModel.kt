@@ -39,6 +39,7 @@ data class QrStudioUiState(
     val amountEditable: Boolean = false,
     val reference: String = "",
     val merchantName: String = "",
+    val expiryDate: String = "", // Optional: YYYY-MM-DD format
     val errorCorrection: ErrorCorrection = ErrorCorrection.DEFAULT,
     val appearance: AppearanceConfig = AppearanceConfig(),
     val logo: LogoConfig = LogoConfig(),
@@ -72,6 +73,7 @@ sealed interface QrStudioIntent {
     data class AmountEditableChanged(val editable: Boolean) : QrStudioIntent
     data class ReferenceChanged(val value: String) : QrStudioIntent
     data class MerchantNameChanged(val value: String) : QrStudioIntent
+    data class ExpiryDateChanged(val date: String) : QrStudioIntent
     data class ErrorCorrectionChanged(val level: ErrorCorrection) : QrStudioIntent
 
     /** FR-401/FR-407: colour and shape changes. The UI builds the new config with .copy(). */
@@ -113,6 +115,7 @@ class QrStudioViewModel(
             is QrStudioIntent.AmountEditableChanged -> uiState.copy(amountEditable = intent.editable)
             is QrStudioIntent.ReferenceChanged -> uiState.copy(reference = intent.value)
             is QrStudioIntent.MerchantNameChanged -> uiState.copy(merchantName = intent.value)
+            is QrStudioIntent.ExpiryDateChanged -> uiState.copy(expiryDate = intent.date)
             is QrStudioIntent.ErrorCorrectionChanged -> uiState.copy(errorCorrection = intent.level)
             is QrStudioIntent.AppearanceChanged -> uiState.copy(appearance = intent.appearance)
             is QrStudioIntent.LogoChanged -> applyLogoChange(intent.logo)
@@ -150,7 +153,8 @@ class QrStudioViewModel(
         get() = this is QrStudioIntent.ProxyValueChanged ||
             this is QrStudioIntent.AmountChanged ||
             this is QrStudioIntent.ReferenceChanged ||
-            this is QrStudioIntent.MerchantNameChanged
+            this is QrStudioIntent.MerchantNameChanged ||
+            this is QrStudioIntent.ExpiryDateChanged
 
     /**
      * FR-502: text edits are debounced by 250 ms before the payload is rebuilt, because

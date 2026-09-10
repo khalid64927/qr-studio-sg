@@ -40,6 +40,13 @@ actual fun exportQrAsPng(
 
             // Draw modules
             val modulePixels = pixelSize / matrix.size
+
+            // Compute logo area if enabled
+            val logoSize = if (logo.enabled) (pixelSize * logo.clampedSizeFraction()).toInt() else 0
+            val logoLeft = (pixelSize - logoSize) / 2
+            val logoTop = (pixelSize - logoSize) / 2
+            val padding = 5
+
             val fgColor = java.awt.Color(
                 (appearance.foreground.r * 255).toInt(),
                 (appearance.foreground.g * 255).toInt(),
@@ -49,8 +56,42 @@ actual fun exportQrAsPng(
             for (row in 0 until matrix.size) {
                 for (col in 0 until matrix.size) {
                     if (matrix.isDark(col, row)) {
-                        graphics.fillRect(col * modulePixels, row * modulePixels, modulePixels, modulePixels)
+                        val x = col * modulePixels
+                        val y = row * modulePixels
+
+                        // Skip modules within logo area
+                        if (logo.enabled && isWithinLogoArea(x, y, modulePixels, logoLeft, logoTop, logoSize, padding)) {
+                            continue
+                        }
+
+                        graphics.fillRect(x, y, modulePixels, modulePixels)
                     }
+                }
+            }
+
+            // Draw logo backing plate if enabled
+            if (logo.enabled) {
+                val bgColor = java.awt.Color(
+                    (appearance.background.r * 255).toInt(),
+                    (appearance.background.g * 255).toInt(),
+                    (appearance.background.b * 255).toInt(),
+                )
+                graphics.color = bgColor
+                when (logo.shape) {
+                    sg.qrstudio.qr.LogoShape.CIRCLE -> {
+                        graphics.fillOval(logoLeft, logoTop, logoSize, logoSize)
+                    }
+                    sg.qrstudio.qr.LogoShape.ROUNDED -> {
+                        graphics.fillRoundRect(logoLeft, logoTop, logoSize, logoSize, 20, 20)
+                    }
+                    sg.qrstudio.qr.LogoShape.SQUARE -> {
+                        graphics.fillRect(logoLeft, logoTop, logoSize, logoSize)
+                    }
+                }
+
+                // Draw the actual image if available
+                if (decodedImage != null && !logo.placeholder) {
+                    drawLogoImageOnCanvas(graphics, decodedImage, logoLeft, logoTop, logoSize, logo.shape)
                 }
             }
 
@@ -88,11 +129,17 @@ actual fun exportQrAsSvg(
 
             val svg = StringBuilder()
             svg.append("""<?xml version="1.0" encoding="UTF-8"?>""").append("\n")
-            svg.append("""<svg xmlns="http://www.w3.org/2000/svg" width="$size" height="$size" viewBox="0 0 $size $size">""").append("\n")
+            svg.append("""<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="$size" height="$size" viewBox="0 0 $size $size">""").append("\n")
 
             // Background
             val bgHex = appearance.background.toHexColor()
             svg.append("""  <rect width="$size" height="$size" fill="$bgHex"/>""").append("\n")
+
+            // Compute logo area if enabled
+            val logoSize = if (logo.enabled) (size * logo.clampedSizeFraction()).toInt() else 0
+            val logoLeft = (size - logoSize) / 2
+            val logoTop = (size - logoSize) / 2
+            val padding = 5
 
             // Modules
             val fgHex = appearance.foreground.toHexColor()
@@ -102,11 +149,41 @@ actual fun exportQrAsSvg(
                     if (matrix.isDark(col, row)) {
                         val x = col * moduleSize
                         val y = row * moduleSize
+
+                        // Skip modules within logo area
+                        if (logo.enabled && isWithinLogoAreaSvg(x, y, moduleSize, logoLeft, logoTop, logoSize, padding)) {
+                            continue
+                        }
+
                         svg.append("""    <rect x="$x" y="$y" width="$moduleSize" height="$moduleSize"/>""").append("\n")
                     }
                 }
             }
             svg.append("""  </g>""").append("\n")
+
+            // Draw logo backing plate if enabled
+            if (logo.enabled) {
+                val bgHex = appearance.background.toHexColor()
+                when (logo.shape) {
+                    sg.qrstudio.qr.LogoShape.CIRCLE -> {
+                        val radius = logoSize / 2
+                        svg.append("""  <circle cx="${logoLeft + radius}" cy="${logoTop + radius}" r="$radius" fill="$bgHex"/>""").append("\n")
+                    }
+                    sg.qrstudio.qr.LogoShape.ROUNDED -> {
+                        val radius = (logoSize * 0.2).toInt()
+                        svg.append("""  <rect x="$logoLeft" y="$logoTop" width="$logoSize" height="$logoSize" rx="$radius" fill="$bgHex"/>""").append("\n")
+                    }
+                    sg.qrstudio.qr.LogoShape.SQUARE -> {
+                        svg.append("""  <rect x="$logoLeft" y="$logoTop" width="$logoSize" height="$logoSize" fill="$bgHex"/>""").append("\n")
+                    }
+                }
+
+                // Draw the actual image if available
+                if (decodedImage != null && !logo.placeholder) {
+                    drawLogoImageSvg(svg, decodedImage, logoLeft, logoTop, logoSize, logo.shape)
+                }
+            }
+
             svg.append("""</svg>""")
 
             // Save SVG
@@ -124,4 +201,97 @@ private fun sg.qrstudio.qr.Contrast.Rgb.toHexColor(): String {
     val g = (this.g * 255).toInt().toString(16).padStart(2, '0')
     val b = (this.b * 255).toInt().toString(16).padStart(2, '0')
     return "#$r$g$b"
+}
+
+private fun isWithinLogoArea(
+    moduleX: Int,
+    moduleY: Int,
+    moduleSize: Int,
+    logoLeft: Int,
+    logoTop: Int,
+    logoSize: Int,
+    padding: Int,
+): Boolean {
+    val cx = moduleX + moduleSize / 2
+    val cy = moduleY + moduleSize / 2
+    return cx in (logoLeft - padding)..(logoLeft + logoSize + padding) &&
+        cy in (logoTop - padding)..(logoTop + logoSize + padding)
+}
+
+private fun drawLogoImageOnCanvas(
+    graphics: java.awt.Graphics2D,
+    image: androidx.compose.ui.graphics.ImageBitmap,
+    left: Int,
+    top: Int,
+    size: Int,
+    shape: sg.qrstudio.qr.LogoShape,
+) {
+    try {
+        val awtImage = image.toAwtImage()
+        val padding = 5
+        val availableSize = size - (padding * 2)
+        val imageAspectRatio = image.width.toFloat() / image.height
+        val (scaledWidth, scaledHeight) = if (imageAspectRatio > 1f) {
+            availableSize to (availableSize / imageAspectRatio).toInt()
+        } else {
+            (availableSize * imageAspectRatio).toInt() to availableSize
+        }
+
+        val imageLeft = left + padding + (availableSize - scaledWidth) / 2
+        val imageTop = top + padding + (availableSize - scaledHeight) / 2
+
+        graphics.drawImage(awtImage, imageLeft, imageTop, scaledWidth, scaledHeight, null)
+    } catch (e: Exception) {
+        // Silently fail if image rendering fails
+    }
+}
+
+private fun isWithinLogoAreaSvg(
+    moduleX: Int,
+    moduleY: Int,
+    moduleSize: Int,
+    logoLeft: Int,
+    logoTop: Int,
+    logoSize: Int,
+    padding: Int,
+): Boolean {
+    val cx = moduleX + moduleSize / 2
+    val cy = moduleY + moduleSize / 2
+    return cx in (logoLeft - padding)..(logoLeft + logoSize + padding) &&
+        cy in (logoTop - padding)..(logoTop + logoSize + padding)
+}
+
+private fun drawLogoImageSvg(
+    svg: StringBuilder,
+    image: androidx.compose.ui.graphics.ImageBitmap,
+    left: Int,
+    top: Int,
+    size: Int,
+    shape: sg.qrstudio.qr.LogoShape,
+) {
+    try {
+        val awtImage = image.toAwtImage()
+        val padding = 5
+        val availableSize = size - (padding * 2)
+        val imageAspectRatio = image.width.toFloat() / image.height
+        val (scaledWidth, scaledHeight) = if (imageAspectRatio > 1f) {
+            availableSize to (availableSize / imageAspectRatio).toInt()
+        } else {
+            (availableSize * imageAspectRatio).toInt() to availableSize
+        }
+
+        val imageLeft = left + padding + (availableSize - scaledWidth) / 2
+        val imageTop = top + padding + (availableSize - scaledHeight) / 2
+
+        // Convert BufferedImage to base64 data URI
+        val base64Image = java.util.Base64.getEncoder().encodeToString(
+            java.io.ByteArrayOutputStream().apply {
+                javax.imageio.ImageIO.write(awtImage, "png", this)
+            }.toByteArray()
+        )
+
+        svg.append("""  <image x="$imageLeft" y="$imageTop" width="$scaledWidth" height="$scaledHeight" xlink:href="data:image/png;base64,$base64Image"/>""").append("\n")
+    } catch (e: Exception) {
+        // Silently fail if image embedding fails
+    }
 }
