@@ -262,7 +262,7 @@ fun QrStudioScreen(
             summary = when (state.appearance.contrastVerdict) {
                 Contrast.Verdict.BLOCKED -> "❌ Too dark — export blocked"
                 Contrast.Verdict.WARNING -> "⚠ Below 4.5:1"
-                Contrast.Verdict.OK -> "✓ ${String.format("%.1f", state.appearance.contrastRatio)}:1"
+                Contrast.Verdict.OK -> "✓ ${(state.appearance.contrastRatio * 10).toInt() / 10.0}:1"
             },
             expanded = appearanceExpanded,
             onToggle = { appearanceExpanded = !appearanceExpanded },
@@ -289,7 +289,7 @@ fun QrStudioScreen(
             if (verdict == Contrast.Verdict.BLOCKED) {
                 Card(modifier = Modifier.fillMaxWidth()) {
                     Text(
-                        "❌ Contrast ratio ${String.format("%.1f", state.appearance.contrastRatio)}:1 is below 3:1 — export is blocked. " +
+                        "❌ Contrast ratio ${(state.appearance.contrastRatio * 10).toInt() / 10.0}:1 is below 3:1 — export is blocked. " +
                             "Lighten the foreground or darken the background.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.error,
@@ -299,7 +299,7 @@ fun QrStudioScreen(
             } else if (verdict == Contrast.Verdict.WARNING) {
                 Card(modifier = Modifier.fillMaxWidth()) {
                     Text(
-                        "⚠ Contrast ratio ${String.format("%.1f", state.appearance.contrastRatio)}:1 is below WCAG AA (4.5:1). " +
+                        "⚠ Contrast ratio ${(state.appearance.contrastRatio * 10).toInt() / 10.0}:1 is below WCAG AA (4.5:1). " +
                             "The code may be hard to scan.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
