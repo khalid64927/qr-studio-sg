@@ -253,9 +253,8 @@ fun QrStudioScreen(
                 // until real image picking is wired up. For now, show a placeholder stand-in
                 // so the size, shape and backing-plate mechanics are real and testable.
                 SuggestionChip(
-                    onClick = { /* §9.3: open image picker */ },
+                    onClick = { /* TODO §9.3: wire platform-specific image picker */ },
                     label = { Text("Choose image") },
-                    enabled = false,
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
