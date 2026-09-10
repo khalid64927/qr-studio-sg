@@ -22,6 +22,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountBalance
 import androidx.compose.material.icons.filled.CloudOff
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.filled.QrCode2
@@ -473,6 +474,77 @@ fun QrStudioScreen(
                 label = { Text("Reset to defaults") },
                 modifier = Modifier.fillMaxWidth(),
             )
+        }
+
+        // Export section (collapsible)
+        var exportExpanded by remember { mutableStateOf(false) }
+        ExpandableSection(
+            title = "Export",
+            summary = when {
+                !state.canExport -> "❌ Blocked — fix errors above"
+                state.payload != null -> "✓ Ready to export"
+                else -> "Waiting for valid QR"
+            },
+            expanded = exportExpanded,
+            onToggle = { exportExpanded = !exportExpanded },
+            leadingIcon = { Icon(Icons.Filled.Download, contentDescription = null) },
+        ) {
+            if (!state.canExport) {
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    Text(
+                        "Export is blocked because:\n• Contrast is below 3:1 (WCAG minimum)\nFix the foreground/background colours in Appearance.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.padding(12.dp),
+                    )
+                }
+            } else if (state.payload != null) {
+                Text("Download high-resolution QR code", style = MaterialTheme.typography.bodySmall)
+                val exportImage = if (state.logo.enabled && state.logo.imageBytes != null && !state.logo.placeholder) {
+                    val bytes = state.logo.imageBytes
+                    if (bytes != null) decodeImageBytes(bytes) else null
+                } else {
+                    null
+                }
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    SuggestionChip(
+                        onClick = {
+                            state.matrix?.let { matrix ->
+                                exportQrAsPng(
+                                    matrix = matrix,
+                                    appearance = state.appearance,
+                                    logo = state.logo,
+                                    decodedImage = exportImage,
+                                    pixelSize = 4096,
+                                    fileName = "qr-code.png",
+                                )
+                            }
+                        },
+                        label = { Text("PNG (4K)") },
+                        modifier = Modifier.weight(1f),
+                    )
+                    SuggestionChip(
+                        onClick = {
+                            state.matrix?.let { matrix ->
+                                exportQrAsSvg(
+                                    matrix = matrix,
+                                    appearance = state.appearance,
+                                    logo = state.logo,
+                                    decodedImage = exportImage,
+                                    fileName = "qr-code.svg",
+                                )
+                            }
+                        },
+                        label = { Text("SVG") },
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+                Text(
+                    "• PNG: 4096×4096px high-definition raster\n• SVG: Scalable vector (infinite resolution)",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
 
         state.errors.forEach { issue ->
