@@ -33,16 +33,19 @@ jobs:
       - name: Build Wasm production bundle
         run: ./gradlew :composeApp:wasmJsBrowserProductionWebpack --stacktrace
 
-      - name: Verify build output
+      - name: Prepare web app files
         run: |
-          ls -la composeApp/build/dist/wasmJs/productionExecutable/
-          echo "Files:"
-          find composeApp/build/dist/wasmJs/productionExecutable -type f
+          mkdir -p dist
+          cp -r composeApp/build/kotlin-webpack/wasmJs/productionExecutable/* dist/
+          cp composeApp/src/wasmJsMain/resources/index.html dist/
+          ls -la dist/
+          echo "Files in dist:"
+          find dist -type f
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: './composeApp/build/dist/wasmJs/productionExecutable'
+          path: './dist'
 
   deploy:
     environment:
