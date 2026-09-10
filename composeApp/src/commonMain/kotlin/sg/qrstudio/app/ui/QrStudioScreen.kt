@@ -1,6 +1,7 @@
 package sg.qrstudio.app.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -10,6 +11,7 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
@@ -30,10 +32,17 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SuggestionChip
 import androidx.compose.material3.SuggestionChipDefaults
 import androidx.compose.material3.Text
+import sg.qrstudio.qr.AppearanceConfig
+import sg.qrstudio.qr.Contrast
+import sg.qrstudio.qr.EyeStyle
+import sg.qrstudio.qr.LogoConfig
+import sg.qrstudio.qr.LogoShape
+import sg.qrstudio.qr.ModuleShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -186,30 +195,201 @@ fun QrStudioScreen(
             )
         }
 
-        // Branding and Appearance are not implemented yet (roadmap steps 4-5). Shown
-        // collapsed and locked rather than left out, so the eventual section order is
-        // visible now and nothing here claims a feature that doesn't exist.
         ExpandableSection(
             title = Strings.SECTION_BRANDING,
-            summary = Strings.COMING_SOON,
+            summary = if (state.logo.enabled) "Enabled · ${(state.logo.sizeFraction * 100).toInt()}%" else "Disabled",
             expanded = brandingExpanded,
             onToggle = { brandingExpanded = !brandingExpanded },
             leadingIcon = { Icon(Icons.Filled.Stars, contentDescription = null) },
         ) {
-            Text(Strings.BRANDING_PREVIEW, style = MaterialTheme.typography.bodySmall)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text("Logo enabled", style = MaterialTheme.typography.bodyMedium)
+                Switch(
+                    checked = state.logo.enabled,
+                    onCheckedChange = { enabled ->
+                        onIntent(QrStudioIntent.LogoChanged(state.logo.copy(enabled = enabled)))
+                    },
+                )
+            }
+
+            if (state.logo.enabled) {
+                Text("Size: ${(state.logo.sizeFraction * 100).toInt()}%", style = MaterialTheme.typography.bodySmall)
+                Slider(
+                    value = state.logo.sizeFraction,
+                    onValueChange = { size ->
+                        onIntent(QrStudioIntent.LogoChanged(state.logo.copy(sizeFraction = size)))
+                    },
+                    valueRange = LogoConfig.MIN_SIZE_FRACTION..LogoConfig.MAX_SIZE_FRACTION,
+                    steps = 10,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+
+                if (state.logo.showsSizeWarning) {
+                    Text(
+                        "⚠ Large logo may affect scannability",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
+
+                Text("Shape", style = MaterialTheme.typography.bodySmall)
+                SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                    LogoShape.entries.forEachIndexed { index, shape ->
+                        SegmentedButton(
+                            selected = state.logo.shape == shape,
+                            onClick = { onIntent(QrStudioIntent.LogoChanged(state.logo.copy(shape = shape))) },
+                            shape = SegmentedButtonDefaults.itemShape(index, LogoShape.entries.size),
+                        ) {
+                            Text(shape.name)
+                        }
+                    }
+                }
+
+                Text(
+                    "Image picker coming soon — using placeholder for now",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
 
         ExpandableSection(
             title = Strings.SECTION_APPEARANCE,
-            summary = Strings.COMING_SOON,
+            summary = when (state.appearance.contrastVerdict) {
+                Contrast.Verdict.BLOCKED -> "❌ Too dark — export blocked"
+                Contrast.Verdict.WARNING -> "⚠ Below 4.5:1"
+                Contrast.Verdict.OK -> "✓ ${String.format("%.1f", state.appearance.contrastRatio)}:1"
+            },
             expanded = appearanceExpanded,
             onToggle = { appearanceExpanded = !appearanceExpanded },
             leadingIcon = { Icon(Icons.Filled.Palette, contentDescription = null) },
         ) {
-            Text(
-                "Colours, module and eye styles, frames and captions — all gated by a " +
-                    "contrast and scan check, never a raw picker with no guardrail.",
-                style = MaterialTheme.typography.bodySmall,
+            Text("Foreground (QR code)", style = MaterialTheme.typography.bodySmall)
+            ColorSliders(
+                color = state.appearance.foreground,
+                onColorChanged = { newFg ->
+                    onIntent(QrStudioIntent.AppearanceChanged(state.appearance.copy(foreground = newFg)))
+                },
+            )
+
+            Text("Background", style = MaterialTheme.typography.bodySmall)
+            ColorSliders(
+                color = state.appearance.background,
+                onColorChanged = { newBg ->
+                    onIntent(QrStudioIntent.AppearanceChanged(state.appearance.copy(background = newBg)))
+                },
+            )
+
+            // FR-402/FR-403 gates
+            val verdict = state.appearance.contrastVerdict
+            if (verdict == Contrast.Verdict.BLOCKED) {
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    Text(
+                        "❌ Contrast ratio ${String.format("%.1f", state.appearance.contrastRatio)}:1 is below 3:1 — export is blocked. " +
+                            "Lighten the foreground or darken the background.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.padding(12.dp),
+                    )
+                }
+            } else if (verdict == Contrast.Verdict.WARNING) {
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    Text(
+                        "⚠ Contrast ratio ${String.format("%.1f", state.appearance.contrastRatio)}:1 is below WCAG AA (4.5:1). " +
+                            "The code may be hard to scan.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(12.dp),
+                    )
+                }
+            }
+
+            if (state.appearance.backgroundDarkerThanForeground) {
+                Text(
+                    "Note: background is darker than foreground — unusual but allowed",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+
+            Text("Module shape", style = MaterialTheme.typography.bodySmall)
+            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                ModuleShape.entries.forEachIndexed { index, shape ->
+                    SegmentedButton(
+                        selected = state.appearance.moduleShape == shape,
+                        onClick = { onIntent(QrStudioIntent.AppearanceChanged(state.appearance.copy(moduleShape = shape))) },
+                        shape = SegmentedButtonDefaults.itemShape(index, ModuleShape.entries.size),
+                    ) {
+                        Text(shape.name)
+                    }
+                }
+            }
+
+            Text("Eye style", style = MaterialTheme.typography.bodySmall)
+            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                ModuleShape.entries.forEachIndexed { index, shape ->
+                    SegmentedButton(
+                        selected = state.appearance.eyeStyle.shape == shape,
+                        onClick = {
+                            onIntent(
+                                QrStudioIntent.AppearanceChanged(
+                                    state.appearance.copy(eyeStyle = state.appearance.eyeStyle.copy(shape = shape)),
+                                ),
+                            )
+                        },
+                        shape = SegmentedButtonDefaults.itemShape(index, ModuleShape.entries.size),
+                    ) {
+                        Text(shape.name)
+                    }
+                }
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text("Eye uses module colour", style = MaterialTheme.typography.bodySmall)
+                Switch(
+                    checked = state.appearance.eyeStyle.colour == null,
+                    onCheckedChange = { useModuleColour ->
+                        onIntent(
+                            QrStudioIntent.AppearanceChanged(
+                                state.appearance.copy(
+                                    eyeStyle = state.appearance.eyeStyle.copy(
+                                        colour = if (useModuleColour) null else state.appearance.foreground,
+                                    ),
+                                ),
+                            ),
+                        )
+                    },
+                )
+            }
+
+            if (state.appearance.eyeStyle.colour != null) {
+                Text("Eye colour", style = MaterialTheme.typography.bodySmall)
+                ColorSliders(
+                    color = state.appearance.eyeStyle.colour!!,
+                    onColorChanged = { newEyeColor ->
+                        onIntent(
+                            QrStudioIntent.AppearanceChanged(
+                                state.appearance.copy(
+                                    eyeStyle = state.appearance.eyeStyle.copy(colour = newEyeColor),
+                                ),
+                            ),
+                        )
+                    },
+                )
+            }
+
+            SuggestionChip(
+                onClick = { onIntent(QrStudioIntent.AppearanceReset) },
+                label = { Text("Reset to defaults") },
+                modifier = Modifier.fillMaxWidth(),
             )
         }
 
@@ -357,4 +537,63 @@ private fun paymentSummary(state: QrStudioUiState): String? {
     val amount = state.amount.ifBlank { "Any amount" }
     val reference = state.reference.ifBlank { "No reference" }
     return "$amount · $reference"
+}
+
+@Composable
+private fun ColorSliders(
+    color: Contrast.Rgb,
+    onColorChanged: (Contrast.Rgb) -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        // Red slider
+        Text(
+            "R: ${(color.r * 255).toInt()}",
+            style = MaterialTheme.typography.bodySmall,
+        )
+        Slider(
+            value = color.r,
+            onValueChange = { r -> onColorChanged(color.copy(r = r)) },
+            valueRange = 0f..1f,
+            modifier = Modifier.fillMaxWidth(),
+        )
+
+        // Green slider
+        Text(
+            "G: ${(color.g * 255).toInt()}",
+            style = MaterialTheme.typography.bodySmall,
+        )
+        Slider(
+            value = color.g,
+            onValueChange = { g -> onColorChanged(color.copy(g = g)) },
+            valueRange = 0f..1f,
+            modifier = Modifier.fillMaxWidth(),
+        )
+
+        // Blue slider
+        Text(
+            "B: ${(color.b * 255).toInt()}",
+            style = MaterialTheme.typography.bodySmall,
+        )
+        Slider(
+            value = color.b,
+            onValueChange = { b -> onColorChanged(color.copy(b = b)) },
+            valueRange = 0f..1f,
+            modifier = Modifier.fillMaxWidth(),
+        )
+
+        // Preview swatch
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(40.dp)
+                .background(
+                    Color(
+                        red = color.r,
+                        green = color.g,
+                        blue = color.b,
+                    ),
+                )
+                .border(1.dp, MaterialTheme.colorScheme.outline),
+        )
+    }
 }
