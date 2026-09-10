@@ -83,6 +83,7 @@ fun QrStudioScreen(
     var payToExpanded by remember { mutableStateOf(true) } // §8: expanded on first launch
     var brandingExpanded by remember { mutableStateOf(false) }
     var appearanceExpanded by remember { mutableStateOf(false) }
+    var showImagePickerMessage by remember { mutableStateOf(false) }
 
     val sections: @Composable () -> Unit = {
         ExpandableSection(
@@ -253,10 +254,33 @@ fun QrStudioScreen(
                 // until real image picking is wired up. For now, show a placeholder stand-in
                 // so the size, shape and backing-plate mechanics are real and testable.
                 SuggestionChip(
-                    onClick = { /* TODO §9.3: wire platform-specific image picker */ },
+                    onClick = { showImagePickerMessage = true },
                     label = { Text("Choose image") },
                     modifier = Modifier.fillMaxWidth(),
                 )
+
+                if (showImagePickerMessage) {
+                    Card(modifier = Modifier.fillMaxWidth()) {
+                        Column(
+                            modifier = Modifier.padding(12.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            Text(
+                                "📸 Image picker coming soon (§9.3)",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.primary,
+                            )
+                            Text(
+                                "Real image uploads will work on Android, iOS, desktop, and web once the platform-specific pickers are integrated.",
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                            SuggestionChip(
+                                onClick = { showImagePickerMessage = false },
+                                label = { Text("Dismiss") },
+                            )
+                        }
+                    }
+                }
             }
         }
 
