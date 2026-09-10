@@ -37,6 +37,8 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.SuggestionChip
 import androidx.compose.material3.SuggestionChipDefaults
 import androidx.compose.material3.Text
+import io.github.vinceglb.filekit.compose.rememberFilePickerLauncher
+import io.github.vinceglb.filekit.core.PlatformFile
 import sg.qrstudio.qr.AppearanceConfig
 import sg.qrstudio.qr.Contrast
 import sg.qrstudio.qr.EyeStyle
@@ -83,7 +85,13 @@ fun QrStudioScreen(
     var payToExpanded by remember { mutableStateOf(true) } // §8: expanded on first launch
     var brandingExpanded by remember { mutableStateOf(false) }
     var appearanceExpanded by remember { mutableStateOf(false) }
-    var showImagePickerMessage by remember { mutableStateOf(false) }
+    var selectedImageFile by remember { mutableStateOf<PlatformFile?>(null) }
+
+    val filePickerLauncher = rememberFilePickerLauncher(
+        type = io.github.vinceglb.filekit.core.PickerType.Image,
+    ) { file ->
+        selectedImageFile = file
+    }
 
     val sections: @Composable () -> Unit = {
         ExpandableSection(
@@ -250,33 +258,31 @@ fun QrStudioScreen(
                     }
                 }
 
-                // §9.3: ImagePicker integration deferred. The logo.placeholder flag stays true
-                // until real image picking is wired up. For now, show a placeholder stand-in
-                // so the size, shape and backing-plate mechanics are real and testable.
                 SuggestionChip(
-                    onClick = { showImagePickerMessage = true },
-                    label = { Text("Choose image") },
+                    onClick = { filePickerLauncher.launch() },
+                    label = { Text(if (selectedImageFile != null) "✓ Image selected: ${selectedImageFile?.name}" else "📸 Choose image") },
                     modifier = Modifier.fillMaxWidth(),
                 )
 
-                if (showImagePickerMessage) {
+                if (selectedImageFile != null) {
                     Card(modifier = Modifier.fillMaxWidth()) {
                         Column(
                             modifier = Modifier.padding(12.dp),
                             verticalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
                             Text(
-                                "📸 Image picker coming soon (§9.3)",
+                                "✓ Image selected",
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.primary,
                             )
                             Text(
-                                "Real image uploads will work on Android, iOS, desktop, and web once the platform-specific pickers are integrated.",
+                                "File: ${selectedImageFile?.name}",
                                 style = MaterialTheme.typography.bodySmall,
                             )
-                            SuggestionChip(
-                                onClick = { showImagePickerMessage = false },
-                                label = { Text("Dismiss") },
+                            Text(
+                                "The logo image will be rendered with the selected size and shape. Real image rendering is coming in §9.3.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
                     }

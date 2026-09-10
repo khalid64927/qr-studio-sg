@@ -60,6 +60,8 @@ kotlin {
             implementation(libs.lifecycle.viewmodel.compose)
             implementation(libs.lifecycle.runtime.compose)
             implementation(libs.kotlinx.datetime)
+            implementation(libs.filekit.core)
+            implementation(libs.filekit.compose)
         }
         commonTest.dependencies {
             implementation(kotlin("test"))

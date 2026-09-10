@@ -2,6 +2,7 @@
 kotlin = "2.2.20"
 agp = "8.11.2"
 compose = "1.9.1"
+filekit = "0.8.0"
 # Compose Multiplatform pulls 0.7.1 transitively and would upgrade anything lower, so
 # this tracks it deliberately rather than being silently overridden. Note 0.7.x moved
 # Clock to kotlin.time; kotlinx.datetime still owns LocalDate and friends.
@@ -26,6 +27,8 @@ qrcode-kotlin = { module = "io.github.g0dkar:qrcode-kotlin", version.ref = "qrco
 lifecycle-viewmodel-compose = { module = "org.jetbrains.androidx.lifecycle:lifecycle-viewmodel-compose", version.ref = "lifecycle" }
 lifecycle-runtime-compose = { module = "org.jetbrains.androidx.lifecycle:lifecycle-runtime-compose", version.ref = "lifecycle" }
 androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "androidx-activity" }
+filekit-core = { module = "io.github.vinceglb:filekit-core", version.ref = "filekit" }
+filekit-compose = { module = "io.github.vinceglb:filekit-compose", version.ref = "filekit" }
 
 kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "coroutines" }
 # Desktop has no Dispatchers.Main without this — viewModelScope.launch() throws
