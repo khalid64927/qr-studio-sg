@@ -249,10 +249,14 @@ fun QrStudioScreen(
                     }
                 }
 
-                Text(
-                    "Image picker coming soon — using placeholder for now",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                // §9.3: ImagePicker integration deferred. The logo.placeholder flag stays true
+                // until real image picking is wired up. For now, show a placeholder stand-in
+                // so the size, shape and backing-plate mechanics are real and testable.
+                SuggestionChip(
+                    onClick = { /* §9.3: open image picker */ },
+                    label = { Text("Choose image") },
+                    enabled = false,
+                    modifier = Modifier.fillMaxWidth(),
                 )
             }
         }
@@ -504,7 +508,9 @@ private fun QrPreviewPanel(state: QrStudioUiState) {
                 if (matrix != null) {
                     QrCanvas(
                         matrix = matrix,
-                        modifier = Modifier.fillMaxSize().background(Color.White),
+                        modifier = Modifier.fillMaxSize().background(state.appearance.background.toComposeColor()),
+                        appearance = state.appearance,
+                        logo = state.logo,
                     )
                 } else {
                     Text(
@@ -586,14 +592,11 @@ private fun ColorSliders(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(40.dp)
-                .background(
-                    Color(
-                        red = color.r,
-                        green = color.g,
-                        blue = color.b,
-                    ),
-                )
+                .background(color.toComposeColor())
                 .border(1.dp, MaterialTheme.colorScheme.outline),
         )
     }
 }
+
+private fun Contrast.Rgb.toComposeColor(): Color =
+    Color(red = r, green = g, blue = b)
