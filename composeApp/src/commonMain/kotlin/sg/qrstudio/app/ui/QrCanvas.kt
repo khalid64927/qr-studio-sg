@@ -1,36 +1,50 @@
 package sg.qrstudio.app.ui
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Image
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
+import sg.qrstudio.qr.AppearanceConfig
+import sg.qrstudio.qr.Contrast
+import sg.qrstudio.qr.LogoConfig
+import sg.qrstudio.qr.LogoShape
 import sg.qrstudio.qr.ModuleMatrix
+import sg.qrstudio.qr.ModuleShape
 import kotlin.math.floor
 import kotlin.math.min
 
 /**
- * Draws a [ModuleMatrix] onto a Compose canvas.
+ * Draws a [ModuleMatrix] onto a Compose canvas, styled per [appearance] and optionally
+ * carrying a centre mark per [logo].
  *
- * FR-503: the preview is painted from the module matrix directly. It is never produced
- * by generating an image file and decoding it back, which would be slower and would put
- * a second, divergent rendering path between the user and what they export.
- *
- * FR-206: this renderer and the SVG writer consume the same matrix, so the raster preview
- * and the vector export cannot disagree about which modules are dark.
+ * FR-503: the preview is painted from the module matrix directly, never by generating and
+ * decoding an image file. FR-206: this renderer and the eventual SVG writer consume the
+ * same matrix, so raster and vector output cannot disagree about which modules are dark.
  */
 @Composable
 fun QrCanvas(
     matrix: ModuleMatrix,
     modifier: Modifier = Modifier,
-    foreground: Color = Color.Black,
-    background: Color = Color.White,
+    appearance: AppearanceConfig = AppearanceConfig(),
+    logo: LogoConfig = LogoConfig(),
 ) {
     Canvas(modifier = modifier) {
-        drawQrMatrix(matrix, foreground, background)
+        drawQrMatrix(matrix, appearance, logo)
     }
 }
+
+/** [Contrast.Rgb] holds 0f..1f channels with no alpha; this is the only place they meet Compose's [Color]. */
+private fun Contrast.Rgb.toColor(): Color = Color(r, g, b)
 
 /**
  * FR-603: module edges are snapped to whole pixels.
@@ -43,8 +57,8 @@ fun QrCanvas(
  */
 internal fun DrawScope.drawQrMatrix(
     matrix: ModuleMatrix,
-    foreground: Color,
-    background: Color,
+    appearance: AppearanceConfig = AppearanceConfig(),
+    logo: LogoConfig = LogoConfig(),
 ) {
     val available = min(size.width, size.height)
     val modulePixels = floor(available / matrix.size)
@@ -55,40 +69,113 @@ internal fun DrawScope.drawQrMatrix(
 
     val rendered = modulePixels * matrix.size
 
-    // The origin is floored, not just the module size.
-    //
-    // Flooring the module size alone is not enough: the leftover space is halved to
-    // centre the symbol, and half of an odd remainder is a half-pixel. Every module then
-    // straddles a pixel boundary and is anti-aliased into soft grey edges, which is
-    // exactly what a binarising decoder cannot read.
-    //
-    // This is not hypothetical — it cost a real decode failure. At a 700px canvas, error
-    // correction levels L, M and H happen to produce even remainders and scan; Q produces
-    // 700-671=29, an origin of 14.5, and fails to decode while looking perfectly fine to
-    // the eye. Flooring here keeps every module on whole pixels (FR-603).
+    // The origin is floored, not just the module size — see git history for why this
+    // matters: a centred-but-unfloored origin lands modules on half-pixel boundaries and
+    // silently produces a symbol that looks fine and fails to decode (FR-603).
     val originX = floor((size.width - rendered) / 2f)
     val originY = floor((size.height - rendered) / 2f)
 
+    val foreground = appearance.foreground.toColor()
+    val background = appearance.background.toColor()
+    val eyeColour = appearance.eyeColour.toColor()
+
     // The background covers the quiet zone too — it is part of the symbol, not padding
     // the surface behind happens to supply (FR-205).
-    drawRect(
-        color = background,
-        topLeft = androidx.compose.ui.geometry.Offset(originX, originY),
-        size = androidx.compose.ui.geometry.Size(rendered, rendered),
-    )
+    drawRect(color = background, topLeft = Offset(originX, originY), size = Size(rendered, rendered))
+
+    // FR-311: logo geometry, computed before drawing modules so data modules under it can
+    // be skipped — error correction reconstructs them, so nothing here removes a module
+    // from the matrix, it only chooses not to paint over the backing plate (FR-308).
+    val logoSize = if (logo.enabled) rendered * logo.clampedSizeFraction() else 0f
+    val logoLeft = originX + (rendered - logoSize) / 2f
+    val logoTop = originY + (rendered - logoSize) / 2f
+    val padding = modulePixels * 0.6f // FR-308: 4-8px-equivalent padding around the plate
 
     for (row in 0 until matrix.size) {
         for (column in 0 until matrix.size) {
             if (!matrix.isDark(column, row)) continue
-            drawRect(
-                color = foreground,
-                topLeft = androidx.compose.ui.geometry.Offset(
-                    originX + column * modulePixels,
-                    originY + row * modulePixels,
-                ),
-                size = androidx.compose.ui.geometry.Size(modulePixels, modulePixels),
-            )
+            val x = originX + column * modulePixels
+            val y = originY + row * modulePixels
+
+            if (logo.enabled && withinLogoArea(x, y, modulePixels, logoLeft, logoTop, logoSize, padding)) {
+                continue
+            }
+
+            val isEye = matrix.typeAt(column, row) == sg.qrstudio.qr.ModuleType.FINDER
+            val colour = if (isEye) eyeColour else foreground
+            val shape = if (isEye) appearance.eyeStyle.shape else appearance.moduleShape
+            drawModule(x, y, modulePixels, colour, shape)
         }
+    }
+
+    if (logo.enabled) {
+        drawLogoPlaceholder(logoLeft, logoTop, logoSize, logo.shape, background)
+    }
+}
+
+private fun withinLogoArea(
+    moduleX: Float,
+    moduleY: Float,
+    moduleSize: Float,
+    logoLeft: Float,
+    logoTop: Float,
+    logoSize: Float,
+    padding: Float,
+): Boolean {
+    val cx = moduleX + moduleSize / 2f
+    val cy = moduleY + moduleSize / 2f
+    return cx in (logoLeft - padding)..(logoLeft + logoSize + padding) &&
+        cy in (logoTop - padding)..(logoTop + logoSize + padding)
+}
+
+private fun DrawScope.drawModule(x: Float, y: Float, size: Float, colour: Color, shape: ModuleShape) {
+    when (shape) {
+        ModuleShape.SQUARE -> drawRect(colour, topLeft = Offset(x, y), size = Size(size, size))
+        ModuleShape.ROUNDED -> drawRoundRect(
+            color = colour,
+            topLeft = Offset(x, y),
+            size = Size(size, size),
+            cornerRadius = CornerRadius(size * 0.3f, size * 0.3f),
+        )
+        ModuleShape.DOT -> drawCircle(colour, radius = size / 2.2f, center = Offset(x + size / 2f, y + size / 2f))
+    }
+}
+
+/**
+ * FR-308/FR-309: a centred backing plate matching the background, behind the mark.
+ *
+ * The actual picked-image compositing (§9.3 ImagePicker/ImageDecoder) is not built yet —
+ * see [LogoConfig.placeholder]. This draws the plate and shape mask for real, which is
+ * what FR-604 self-verification and the contrast/size gates all act on; only the bitmap
+ * itself is a stand-in.
+ */
+private fun DrawScope.drawLogoPlaceholder(left: Float, top: Float, size: Float, shape: LogoShape, plateColour: Color) {
+    val center = Offset(left + size / 2f, top + size / 2f)
+    when (shape) {
+        LogoShape.CIRCLE -> drawCircle(plateColour, radius = size / 2f, center = center)
+        LogoShape.SQUARE -> drawRect(plateColour, topLeft = Offset(left, top), size = Size(size, size))
+        LogoShape.ROUNDED -> drawRoundRect(
+            color = plateColour,
+            topLeft = Offset(left, top),
+            size = Size(size, size),
+            cornerRadius = CornerRadius(size * 0.2f, size * 0.2f),
+        )
+    }
+}
+
+/**
+ * The visible stand-in mark drawn over the backing plate, as a normal composable rather
+ * than canvas drawing, so it can use Material icon glyphs and text without hand-rolled
+ * vector paths. Positioned by the caller to sit exactly over the plate area.
+ */
+@Composable
+fun LogoPlaceholderMark(modifier: Modifier = Modifier) {
+    androidx.compose.foundation.layout.Box(modifier = modifier, contentAlignment = androidx.compose.ui.Alignment.Center) {
+        Icon(
+            imageVector = Icons.Filled.Image,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 

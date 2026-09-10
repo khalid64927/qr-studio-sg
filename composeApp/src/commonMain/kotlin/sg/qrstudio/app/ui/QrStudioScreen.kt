@@ -3,12 +3,16 @@ package sg.qrstudio.app.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -44,13 +48,21 @@ import sg.qrstudio.payload.Field
 import sg.qrstudio.payload.ProxyType
 
 /**
- * The single screen. Section structure follows §8: "Pay to" is the only section expanded
- * on first launch, so a user wanting a plain open-amount QR finishes in two fields.
+ * §8 breakpoint. Below this the screen is a single scrolling column; at or above it, the
+ * preview pins to the left and never scrolls away, with a separate scrollable control
+ * rail on the right — Compose has no notion of viewport width on its own, so [Dp] width
+ * from [BoxWithConstraints] is the actual signal, not a platform check.
+ */
+private val EXPANDED_BREAKPOINT = 600.dp
+
+/**
+ * The single screen, laid out compact or expanded depending on measured width — including
+ * in a resizable desktop window or a browser tab, not just by platform. §8: "Pay to" is
+ * the only section expanded on first launch, so a user wanting a plain open-amount QR
+ * finishes in two fields.
  *
- * The responsive two-pane layout for wide screens, appearance controls and export are not
- * built yet — Branding and Appearance render as placeholders. What is here is the preview
- * pipeline end to end: payload, encoding, rendering, plus the section chrome the rest of
- * the app attaches to.
+ * Appearance controls and export are not built yet — Branding and Appearance render as
+ * honest placeholders rather than fake controls for features that don't exist.
  */
 @Composable
 fun QrStudioScreen(
@@ -63,17 +75,7 @@ fun QrStudioScreen(
     var brandingExpanded by remember { mutableStateOf(false) }
     var appearanceExpanded by remember { mutableStateOf(false) }
 
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(20.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-    ) {
-        AppTitleBar()
-
-        QrPreviewPanel(state)
-
+    val sections: @Composable () -> Unit = {
         ExpandableSection(
             title = Strings.SECTION_PAY_TO,
             summary = paySummary(state),
@@ -230,6 +232,57 @@ fun QrStudioScreen(
                 "Recipient ${payload.proxyDisplay}", // FR-153: grouped for reading
                 style = MaterialTheme.typography.bodyMedium,
             )
+        }
+    }
+
+    BoxWithConstraints(modifier = modifier.fillMaxSize()) {
+        if (maxWidth < EXPANDED_BREAKPOINT) {
+            CompactLayout(state, sections)
+        } else {
+            ExpandedLayout(state, sections)
+        }
+    }
+}
+
+/** Phones and narrow browser windows: preview near the top, everything scrolls together. */
+@Composable
+private fun CompactLayout(state: QrStudioUiState, sections: @Composable () -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(20.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
+        AppTitleBar()
+        QrPreviewPanel(state)
+        sections()
+    }
+}
+
+/**
+ * Tablet and desktop, and any browser window at or above [EXPANDED_BREAKPOINT]: the
+ * preview pins to the left and never scrolls away, with the section rail on the right
+ * scrolling independently. This is the layout the wasm build should show once the browser
+ * window is wide — a phone-shaped window still gets [CompactLayout], correctly.
+ */
+@Composable
+private fun ExpandedLayout(state: QrStudioUiState, sections: @Composable () -> Unit) {
+    Column(modifier = Modifier.fillMaxSize().padding(24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        AppTitleBar()
+        Row(modifier = Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
+            Box(modifier = Modifier.widthIn(max = 480.dp).width(420.dp)) {
+                QrPreviewPanel(state)
+            }
+            Column(
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .weight(1f)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
+                sections()
+            }
         }
     }
 }

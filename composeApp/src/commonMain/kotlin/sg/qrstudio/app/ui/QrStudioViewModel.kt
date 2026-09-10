@@ -19,7 +19,10 @@ import sg.qrstudio.payload.PayNowPayloadBuilder
 import sg.qrstudio.payload.PayloadResult
 import sg.qrstudio.payload.ProxyType
 import sg.qrstudio.payload.ValidationIssue
+import sg.qrstudio.qr.AppearanceConfig
+import sg.qrstudio.qr.Contrast
 import sg.qrstudio.qr.ErrorCorrection
+import sg.qrstudio.qr.LogoConfig
 import sg.qrstudio.qr.ModuleMatrix
 import sg.qrstudio.qr.QrEncoder
 
@@ -37,14 +40,25 @@ data class QrStudioUiState(
     val reference: String = "",
     val merchantName: String = "",
     val errorCorrection: ErrorCorrection = ErrorCorrection.DEFAULT,
+    val appearance: AppearanceConfig = AppearanceConfig(),
+    val logo: LogoConfig = LogoConfig(),
+    /**
+     * FR-310: the level in force before a logo forced it to H, so removing the logo can
+     * restore it rather than leaving the user stuck at H.
+     */
+    val errorCorrectionBeforeLogo: ErrorCorrection = ErrorCorrection.DEFAULT,
     /** Null until the input is valid enough to encode. */
     val payload: PayNowPayload? = null,
     val matrix: ModuleMatrix? = null,
     val errors: List<ValidationIssue> = emptyList(),
     val warnings: List<ValidationIssue> = emptyList(),
 ) {
-    /** FR-151: export stays blocked until there is a payload and no blocking error. */
-    val canExport: Boolean get() = payload != null && errors.isEmpty()
+    /**
+     * FR-151/FR-402: export stays blocked until there is a payload, no blocking input
+     * error, and the appearance colours clear the contrast floor.
+     */
+    val canExport: Boolean
+        get() = payload != null && errors.isEmpty() && appearance.contrastVerdict != Contrast.Verdict.BLOCKED
 
     /** FR-155: the UEN notice is shown whenever UEN mode is selected. */
     val showUenNotice: Boolean get() = proxyType == ProxyType.UEN
@@ -59,6 +73,15 @@ sealed interface QrStudioIntent {
     data class ReferenceChanged(val value: String) : QrStudioIntent
     data class MerchantNameChanged(val value: String) : QrStudioIntent
     data class ErrorCorrectionChanged(val level: ErrorCorrection) : QrStudioIntent
+
+    /** FR-401/FR-407: colour and shape changes. The UI builds the new config with .copy(). */
+    data class AppearanceChanged(val appearance: AppearanceConfig) : QrStudioIntent
+
+    /** FR-301..FR-311: logo presence, size and shape. */
+    data class LogoChanged(val logo: LogoConfig) : QrStudioIntent
+
+    /** FR-404: restores every visual default in one action. */
+    data object AppearanceReset : QrStudioIntent
 }
 
 /**
@@ -91,8 +114,36 @@ class QrStudioViewModel(
             is QrStudioIntent.ReferenceChanged -> uiState.copy(reference = intent.value)
             is QrStudioIntent.MerchantNameChanged -> uiState.copy(merchantName = intent.value)
             is QrStudioIntent.ErrorCorrectionChanged -> uiState.copy(errorCorrection = intent.level)
+            is QrStudioIntent.AppearanceChanged -> uiState.copy(appearance = intent.appearance)
+            is QrStudioIntent.LogoChanged -> applyLogoChange(intent.logo)
+            QrStudioIntent.AppearanceReset -> uiState.copy(
+                appearance = AppearanceConfig(),
+                logo = LogoConfig(),
+                errorCorrection = uiState.errorCorrectionBeforeLogo,
+            )
         }
         scheduleRegeneration(debounce = intent.isTextEdit)
+    }
+
+    /**
+     * FR-204: turning a logo on forces error correction to H, remembering whatever level
+     * was active so FR-310 can restore it. Sliding the size or changing the shape while
+     * already enabled does not re-trigger this — only the enabled transition does.
+     */
+    private fun applyLogoChange(newLogo: LogoConfig): QrStudioUiState {
+        val current = uiState
+        val turningOn = newLogo.enabled && !current.logo.enabled
+        val turningOff = !newLogo.enabled && current.logo.enabled
+        return when {
+            turningOn -> current.copy(
+                logo = newLogo,
+                errorCorrectionBeforeLogo = current.errorCorrection,
+                errorCorrection = ErrorCorrection.WITH_LOGO,
+            )
+
+            turningOff -> current.copy(logo = newLogo, errorCorrection = current.errorCorrectionBeforeLogo)
+            else -> current.copy(logo = newLogo)
+        }
     }
 
     private val QrStudioIntent.isTextEdit: Boolean
