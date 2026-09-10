@@ -50,7 +50,26 @@ data class LogoConfig(
     val sizeFraction: Float = DEFAULT_SIZE_FRACTION,
     val shape: LogoShape = LogoShape.ROUNDED,
     val placeholder: Boolean = true,
+    val imageBytes: ByteArray? = null,
 ) {
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other !is LogoConfig) return false
+        if (enabled != other.enabled) return false
+        if (sizeFraction != other.sizeFraction) return false
+        if (shape != other.shape) return false
+        if (placeholder != other.placeholder) return false
+        return imageBytes?.contentEquals(other.imageBytes) ?: (other.imageBytes == null)
+    }
+
+    override fun hashCode(): Int {
+        var result = enabled.hashCode()
+        result = 31 * result + sizeFraction.hashCode()
+        result = 31 * result + shape.hashCode()
+        result = 31 * result + placeholder.hashCode()
+        result = 31 * result + (imageBytes?.contentHashCode() ?: 0)
+        return result
+    }
     companion object {
         const val MIN_SIZE_FRACTION = 0.08f
         const val MAX_SIZE_FRACTION = 0.30f

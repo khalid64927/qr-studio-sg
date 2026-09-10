@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
@@ -46,10 +47,13 @@ import sg.qrstudio.qr.LogoConfig
 import sg.qrstudio.qr.LogoShape
 import sg.qrstudio.qr.ModuleShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -86,11 +90,30 @@ fun QrStudioScreen(
     var brandingExpanded by remember { mutableStateOf(false) }
     var appearanceExpanded by remember { mutableStateOf(false) }
     var selectedImageFile by remember { mutableStateOf<PlatformFile?>(null) }
+    val coroutineScope = rememberCoroutineScope()
 
     val filePickerLauncher = rememberFilePickerLauncher(
         type = io.github.vinceglb.filekit.core.PickerType.Image,
     ) { file ->
-        selectedImageFile = file
+        if (file != null) {
+            selectedImageFile = file
+            // Read the image bytes asynchronously and update the logo config
+            coroutineScope.launch {
+                try {
+                    val bytes = file.readBytes()
+                    onIntent(
+                        QrStudioIntent.LogoChanged(
+                            state.logo.copy(
+                                placeholder = false,
+                                imageBytes = bytes,
+                            ),
+                        ),
+                    )
+                } catch (e: Exception) {
+                    // Image reading failed, keep placeholder
+                }
+            }
+        }
     }
 
     val sections: @Composable () -> Unit = {
@@ -271,16 +294,12 @@ fun QrStudioScreen(
                             verticalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
                             Text(
-                                "✓ Image selected",
+                                "✓ Image selected: ${selectedImageFile?.name}",
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.primary,
                             )
                             Text(
-                                "File: ${selectedImageFile?.name}",
-                                style = MaterialTheme.typography.bodySmall,
-                            )
-                            Text(
-                                "The logo image will be rendered with the selected size and shape. Real image rendering is coming in §9.3.",
+                                "The selected image will appear in the QR code center at your chosen size and shape.\n\nActual image rendering (§9.3) requires platform-specific image decoders and is coming in a future update. For now, the backing plate and size/shape logic are real and ready.",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
