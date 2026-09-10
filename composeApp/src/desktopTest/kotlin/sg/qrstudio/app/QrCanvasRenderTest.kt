@@ -52,8 +52,7 @@ class QrCanvasRenderTest {
                 QrCanvas(
                     matrix = matrix,
                     modifier = Modifier.fillMaxSize(),
-                    foreground = Color.Black,
-                    background = Color.White,
+                    // appearance and logo use defaults (black on white, no logo)
                 )
             }
         }.use { scene ->
