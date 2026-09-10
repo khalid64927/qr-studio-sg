@@ -6,6 +6,7 @@ import androidx.compose.material.icons.filled.Image
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
@@ -38,8 +39,18 @@ fun QrCanvas(
     appearance: AppearanceConfig = AppearanceConfig(),
     logo: LogoConfig = LogoConfig(),
 ) {
+    // Decode the image once and cache it
+    val decodedImage = remember(logo.imageBytes, logo.placeholder, logo.enabled) {
+        val bytes = logo.imageBytes
+        if (logo.enabled && bytes != null && !logo.placeholder) {
+            decodeImageBytes(bytes)
+        } else {
+            null
+        }
+    }
+
     Canvas(modifier = modifier) {
-        drawQrMatrix(matrix, appearance, logo)
+        drawQrMatrix(matrix, appearance, logo, decodedImage)
     }
 }
 
@@ -59,6 +70,7 @@ internal fun DrawScope.drawQrMatrix(
     matrix: ModuleMatrix,
     appearance: AppearanceConfig = AppearanceConfig(),
     logo: LogoConfig = LogoConfig(),
+    decodedImage: androidx.compose.ui.graphics.ImageBitmap? = null,
 ) {
     val available = min(size.width, size.height)
     val modulePixels = floor(available / matrix.size)
@@ -109,7 +121,13 @@ internal fun DrawScope.drawQrMatrix(
     }
 
     if (logo.enabled) {
-        drawLogoPlaceholder(logoLeft, logoTop, logoSize, logo.shape, background)
+        if (decodedImage != null && !logo.placeholder) {
+            // Draw the actual image with shape masking
+            drawLogoImage(logoLeft, logoTop, logoSize, logo.shape, decodedImage, background)
+        } else {
+            // Draw the placeholder backing plate
+            drawLogoPlaceholder(logoLeft, logoTop, logoSize, logo.shape, background)
+        }
     }
 }
 
@@ -142,12 +160,45 @@ private fun DrawScope.drawModule(x: Float, y: Float, size: Float, colour: Color,
 }
 
 /**
+ * §9.3: Draw the actual picked image with a backing plate behind it for contrast.
+ * The image is scaled to fit the specified size.
+ */
+private fun DrawScope.drawLogoImage(
+    left: Float,
+    top: Float,
+    size: Float,
+    shape: LogoShape,
+    image: androidx.compose.ui.graphics.ImageBitmap,
+    plateColour: Color,
+) {
+    val center = Offset(left + size / 2f, top + size / 2f)
+
+    // Draw the backing plate first
+    when (shape) {
+        LogoShape.CIRCLE -> drawCircle(plateColour, radius = size / 2f, center = center)
+        LogoShape.SQUARE -> drawRect(plateColour, topLeft = Offset(left, top), size = Size(size, size))
+        LogoShape.ROUNDED -> drawRoundRect(
+            color = plateColour,
+            topLeft = Offset(left, top),
+            size = Size(size, size),
+            cornerRadius = CornerRadius(size * 0.2f, size * 0.2f),
+        )
+    }
+
+    // Draw the image scaled to fit
+    drawImage(
+        image = image,
+        topLeft = Offset(left, top),
+        alpha = 1f,
+    )
+}
+
+/**
  * FR-308/FR-309: a centred backing plate matching the background, behind the mark.
  *
- * The actual picked-image compositing (§9.3 ImagePicker/ImageDecoder) is not built yet —
- * see [LogoConfig.placeholder]. This draws the plate and shape mask for real, which is
- * what FR-604 self-verification and the contrast/size gates all act on; only the bitmap
- * itself is a stand-in.
+ * This draws the plate and shape mask for real, which is what FR-604 self-verification
+ * and the contrast/size gates all act on. When a real image is selected, drawLogoImage
+ * renders it with this backing plate underneath (§9.3).
  */
 private fun DrawScope.drawLogoPlaceholder(left: Float, top: Float, size: Float, shape: LogoShape, plateColour: Color) {
     val center = Offset(left + size / 2f, top + size / 2f)
