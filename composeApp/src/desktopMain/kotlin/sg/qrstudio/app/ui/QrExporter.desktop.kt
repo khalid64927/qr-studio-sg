@@ -17,27 +17,50 @@ actual fun exportQrAsPng(
     fileName: String,
 ) {
     try {
-        // Create image and render QR code
-        val bufferedImage = java.awt.image.BufferedImage(pixelSize, pixelSize, java.awt.image.BufferedImage.TYPE_INT_RGB)
-        val graphics = bufferedImage.createGraphics()
+        // Show file save dialog
+        val fileDialog = java.awt.FileDialog(null, "Save QR Code as PNG", 1) // 1 = SAVE mode
+        fileDialog.file = fileName
+        fileDialog.isVisible = true
 
-        // Fill background
-        val bgColor = java.awt.Color(
-            (appearance.background.r * 255).toInt(),
-            (appearance.background.g * 255).toInt(),
-            (appearance.background.b * 255).toInt(),
-        )
-        graphics.color = bgColor
-        graphics.fillRect(0, 0, pixelSize, pixelSize)
+        if (fileDialog.file != null) {
+            // Create image and render QR code
+            val bufferedImage = java.awt.image.BufferedImage(pixelSize, pixelSize, java.awt.image.BufferedImage.TYPE_INT_RGB)
+            val graphics = bufferedImage.createGraphics()
 
-        graphics.dispose()
+            // Fill background
+            val bgColor = java.awt.Color(
+                (appearance.background.r * 255).toInt(),
+                (appearance.background.g * 255).toInt(),
+                (appearance.background.b * 255).toInt(),
+            )
+            graphics.color = bgColor
+            graphics.fillRect(0, 0, pixelSize, pixelSize)
 
-        // Save PNG
-        val file = File(fileName)
-        ImageIO.write(bufferedImage, "png", file)
-        println("QR code saved to: ${file.absolutePath}")
+            // Draw modules
+            val modulePixels = pixelSize / matrix.size
+            val fgColor = java.awt.Color(
+                (appearance.foreground.r * 255).toInt(),
+                (appearance.foreground.g * 255).toInt(),
+                (appearance.foreground.b * 255).toInt(),
+            )
+            graphics.color = fgColor
+            for (row in 0 until matrix.size) {
+                for (col in 0 until matrix.size) {
+                    if (matrix.isDark(col, row)) {
+                        graphics.fillRect(col * modulePixels, row * modulePixels, modulePixels, modulePixels)
+                    }
+                }
+            }
+
+            graphics.dispose()
+
+            // Save PNG
+            val file = File(fileDialog.directory, fileDialog.file)
+            ImageIO.write(bufferedImage, "png", file)
+            println("✓ QR code saved to: ${file.absolutePath}")
+        }
     } catch (e: Exception) {
-        println("Export failed: ${e.message}")
+        println("❌ Export failed: ${e.message}")
     }
 }
 
@@ -49,39 +72,46 @@ actual fun exportQrAsSvg(
     fileName: String,
 ) {
     try {
-        // Generate SVG as text
-        val moduleSize = 10 // pixels per module in SVG
-        val size = matrix.size * moduleSize
+        // Show file save dialog
+        val fileDialog = java.awt.FileDialog(null, "Save QR Code as SVG", 1) // 1 = SAVE mode
+        fileDialog.file = fileName
+        fileDialog.isVisible = true
 
-        val svg = StringBuilder()
-        svg.append("""<?xml version="1.0" encoding="UTF-8"?>""").append("\n")
-        svg.append("""<svg xmlns="http://www.w3.org/2000/svg" width="$size" height="$size" viewBox="0 0 $size $size">""").append("\n")
+        if (fileDialog.file != null) {
+            // Generate SVG as text
+            val moduleSize = 10 // pixels per module in SVG
+            val size = matrix.size * moduleSize
 
-        // Background
-        val bgHex = appearance.background.toHexColor()
-        svg.append("""  <rect width="$size" height="$size" fill="$bgHex"/>""").append("\n")
+            val svg = StringBuilder()
+            svg.append("""<?xml version="1.0" encoding="UTF-8"?>""").append("\n")
+            svg.append("""<svg xmlns="http://www.w3.org/2000/svg" width="$size" height="$size" viewBox="0 0 $size $size">""").append("\n")
 
-        // Modules
-        val fgHex = appearance.foreground.toHexColor()
-        svg.append("""  <g fill="$fgHex">""").append("\n")
-        for (row in 0 until matrix.size) {
-            for (col in 0 until matrix.size) {
-                if (matrix.isDark(col, row)) {
-                    val x = col * moduleSize
-                    val y = row * moduleSize
-                    svg.append("""    <rect x="$x" y="$y" width="$moduleSize" height="$moduleSize"/>""").append("\n")
+            // Background
+            val bgHex = appearance.background.toHexColor()
+            svg.append("""  <rect width="$size" height="$size" fill="$bgHex"/>""").append("\n")
+
+            // Modules
+            val fgHex = appearance.foreground.toHexColor()
+            svg.append("""  <g fill="$fgHex">""").append("\n")
+            for (row in 0 until matrix.size) {
+                for (col in 0 until matrix.size) {
+                    if (matrix.isDark(col, row)) {
+                        val x = col * moduleSize
+                        val y = row * moduleSize
+                        svg.append("""    <rect x="$x" y="$y" width="$moduleSize" height="$moduleSize"/>""").append("\n")
+                    }
                 }
             }
-        }
-        svg.append("""  </g>""").append("\n")
-        svg.append("""</svg>""")
+            svg.append("""  </g>""").append("\n")
+            svg.append("""</svg>""")
 
-        // Save SVG
-        val file = File(fileName)
-        file.writeText(svg.toString())
-        println("QR code SVG saved to: ${file.absolutePath}")
+            // Save SVG
+            val file = File(fileDialog.directory, fileDialog.file)
+            file.writeText(svg.toString())
+            println("✓ QR code SVG saved to: ${file.absolutePath}")
+        }
     } catch (e: Exception) {
-        println("Export failed: ${e.message}")
+        println("❌ Export failed: ${e.message}")
     }
 }
 
