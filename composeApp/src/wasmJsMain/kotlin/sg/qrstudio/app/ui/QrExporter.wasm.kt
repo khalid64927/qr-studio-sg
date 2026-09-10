@@ -87,16 +87,49 @@ actual fun exportQrAsSvg(
 }
 
 private fun downloadFile(content: String, fileName: String, mimeType: String) {
-    val blob = Blob(arrayOf(content), BlobPropertyBag(type = mimeType))
-    val url = org.w3c.dom.url.URL.createObjectURL(blob)
-    val link = window.document.createElement("a") as org.w3c.dom.HTMLAnchorElement
-    link.href = url
-    link.setAttribute("download", fileName)
-    link.style.display = "none"
-    window.document.body?.appendChild(link)
-    link.click()
-    window.document.body?.removeChild(link)
-    org.w3c.dom.url.URL.revokeObjectURL(url)
+    try {
+        // Create base64-encoded data URL for download
+        val base64 = encodeToBase64(content)
+        val dataUrl = "data:$mimeType;base64,$base64"
+        val link = window.document.createElement("a") as org.w3c.dom.HTMLAnchorElement
+        link.href = dataUrl
+        link.setAttribute("download", fileName)
+        link.style.display = "none"
+        window.document.body?.appendChild(link)
+        link.click()
+        window.document.body?.removeChild(link)
+    } catch (e: Exception) {
+        // Fallback: silently fail if download doesn't work
+    }
+}
+
+private fun encodeToBase64(text: String): String {
+    val bytes = text.encodeToByteArray()
+    val chars = CharArray(bytes.size)
+    for (i in bytes.indices) {
+        chars[i] = bytes[i].toInt().and(0xFF).toChar()
+    }
+    val base64Chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/="
+    val result = StringBuilder()
+    var i = 0
+    while (i < chars.size) {
+        val b1 = chars[i].code.and(0xFF)
+        val b2 = if (i + 1 < chars.size) chars[i + 1].code.and(0xFF) else 0
+        val b3 = if (i + 2 < chars.size) chars[i + 2].code.and(0xFF) else 0
+
+        val enc1 = b1.shr(2)
+        val enc2 = (b1.shl(4) or b2.shr(4)).and(0x3F)
+        val enc3 = (b2.shl(2) or b3.shr(6)).and(0x3F)
+        val enc4 = b3.and(0x3F)
+
+        result.append(base64Chars[enc1])
+        result.append(base64Chars[enc2])
+        result.append(if (i + 1 < chars.size) base64Chars[enc3] else '=')
+        result.append(if (i + 2 < chars.size) base64Chars[enc4] else '=')
+
+        i += 3
+    }
+    return result.toString()
 }
 
 private fun sg.qrstudio.qr.Contrast.Rgb.toHexColor(): String {
