@@ -14,6 +14,8 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import sg.qrstudio.qr.AppearanceConfig
 import sg.qrstudio.qr.Contrast
@@ -161,7 +163,8 @@ private fun DrawScope.drawModule(x: Float, y: Float, size: Float, colour: Color,
 
 /**
  * §9.3: Draw the actual picked image with a backing plate behind it for contrast.
- * The image is scaled to fit the specified size.
+ * The image is scaled to fit within the logo area while maintaining aspect ratio,
+ * centered in the available space.
  */
 private fun DrawScope.drawLogoImage(
     left: Float,
@@ -185,11 +188,27 @@ private fun DrawScope.drawLogoImage(
         )
     }
 
-    // Draw the image scaled to fit
+    // Calculate scaled image size maintaining aspect ratio, with padding for safe area
+    val padding = size * 0.1f // 10% padding around edges
+    val availableSize = size - (padding * 2)
+    val imageAspectRatio = image.width.toFloat() / image.height
+    val (scaledWidth, scaledHeight) = if (imageAspectRatio > 1f) {
+        // Wider than tall
+        availableSize to (availableSize / imageAspectRatio)
+    } else {
+        // Taller than wide
+        (availableSize * imageAspectRatio) to availableSize
+    }
+
+    // Center the scaled image
+    val imageLeft = center.x - (scaledWidth / 2f)
+    val imageTop = center.y - (scaledHeight / 2f)
+
+    // Draw the image scaled and centered
     drawImage(
         image = image,
-        topLeft = Offset(left, top),
-        alpha = 1f,
+        dstOffset = IntOffset(imageLeft.toInt(), imageTop.toInt()),
+        dstSize = IntSize(scaledWidth.toInt(), scaledHeight.toInt()),
     )
 }
 

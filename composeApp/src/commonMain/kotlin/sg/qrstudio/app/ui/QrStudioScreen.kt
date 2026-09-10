@@ -2,6 +2,7 @@ package sg.qrstudio.app.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -17,7 +18,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountBalance
@@ -299,9 +299,39 @@ fun QrStudioScreen(
                                 color = MaterialTheme.colorScheme.primary,
                             )
                             Text(
-                                "The selected image will appear in the QR code center at your chosen size and shape.\n\nActual image rendering (§9.3) requires platform-specific image decoders and is coming in a future update. For now, the backing plate and size/shape logic are real and ready.",
+                                "The selected image will appear in the QR code center at your chosen size and shape. The image is automatically scaled to fit within the logo area while maintaining its aspect ratio.",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                }
+
+                // Logo dimension guide
+                Text("Logo dimensions", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(8.dp)),
+                ) {
+                    Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text(
+                            "Size: ${(state.logo.sizeFraction * 100).toInt()}% of QR code width",
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                        Text(
+                            "Shape: ${state.logo.shape.name.lowercase().replaceFirstChar { it.uppercase() }}",
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                        Text(
+                            "Padding: 10% safe zone around image edges",
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                        if (selectedImageFile != null) {
+                            Text(
+                                "✓ Image loaded and centered in the QR code",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.primary,
                             )
                         }
                     }
