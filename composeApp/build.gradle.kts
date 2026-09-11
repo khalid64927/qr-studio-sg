@@ -45,7 +45,24 @@ kotlin {
         binaries.executable()
     }
 
+    // Kotlin/JS (canvas) target, alongside wasmJs. The wasmJs backend is newer and some
+    // browsers/automation setups have had trouble routing input to its canvas; js(IR)
+    // uses the older, more battle-tested Compose-for-Web canvas renderer as a fallback
+    // that can be deployed if wasmJs interactivity proves unreliable.
+    js(IR) {
+        browser {
+            commonWebpackConfig { outputFileName = "composeApp.js" }
+        }
+        binaries.executable()
+    }
+
     sourceSets {
+        // Shared between the wasmJs and js(IR) browser targets: both talk to the DOM
+        // through the same kotlinx-browser/org.w3c.dom APIs, so the actuals (image
+        // decoding, file export, native file input) are identical and live here once.
+        val webMain by creating { dependsOn(commonMain.get()) }
+        wasmJsMain.get().dependsOn(webMain)
+        val jsMain by getting { dependsOn(webMain) }
         commonMain.dependencies {
             implementation(projects.payload)
             implementation(projects.qr)

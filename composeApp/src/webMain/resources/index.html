@@ -8,6 +8,11 @@
          so any absolute asset URL would 404. -->
     <style>
         html, body { width: 100%; height: 100%; margin: 0; padding: 0; overflow: hidden; }
+        /* ComposeViewport reuses this canvas rather than creating its own. Without an
+           explicit CSS box it defaults to the browser's 300x150 replaced-element size
+           with display:inline, which breaks Skia's resize handling and leaves the
+           canvas without a real layout box — clicks and keyboard focus never reach it. */
+        #ComposeTarget { width: 100vw; height: 100vh; display: block; outline: none; }
     </style>
 </head>
 <body>
