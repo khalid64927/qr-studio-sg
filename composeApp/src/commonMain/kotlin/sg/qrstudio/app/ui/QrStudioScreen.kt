@@ -39,8 +39,6 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.SuggestionChip
 import androidx.compose.material3.SuggestionChipDefaults
 import androidx.compose.material3.Text
-import io.github.vinceglb.filekit.compose.rememberFilePickerLauncher
-import io.github.vinceglb.filekit.core.PlatformFile
 import sg.qrstudio.qr.AppearanceConfig
 import sg.qrstudio.qr.Contrast
 import sg.qrstudio.qr.EyeStyle
@@ -90,32 +88,7 @@ fun QrStudioScreen(
     var payToExpanded by remember { mutableStateOf(true) } // §8: expanded on first launch
     var brandingExpanded by remember { mutableStateOf(false) }
     var appearanceExpanded by remember { mutableStateOf(false) }
-    var selectedImageFile by remember { mutableStateOf<PlatformFile?>(null) }
-    val coroutineScope = rememberCoroutineScope()
-
-    val filePickerLauncher = rememberFilePickerLauncher(
-        type = io.github.vinceglb.filekit.core.PickerType.Image,
-    ) { file ->
-        if (file != null) {
-            selectedImageFile = file
-            // Read the image bytes asynchronously and update the logo config
-            coroutineScope.launch {
-                try {
-                    val bytes = file.readBytes()
-                    onIntent(
-                        QrStudioIntent.LogoChanged(
-                            state.logo.copy(
-                                placeholder = false,
-                                imageBytes = bytes,
-                            ),
-                        ),
-                    )
-                } catch (e: Exception) {
-                    // Image reading failed, keep placeholder
-                }
-            }
-        }
-    }
+    var selectedImageFileName by remember { mutableStateOf<String?>(null) }
 
     val sections: @Composable () -> Unit = {
         ExpandableSection(
@@ -292,20 +265,30 @@ fun QrStudioScreen(
                     }
                 }
 
-                SuggestionChip(
-                    onClick = { filePickerLauncher.launch() },
-                    label = { Text(if (selectedImageFile != null) "✓ Image selected: ${selectedImageFile?.name}" else "📸 Choose image") },
+                WebFileInputButton(
+                    onFileSelected = { fileName, bytes ->
+                        selectedImageFileName = fileName
+                        onIntent(
+                            QrStudioIntent.LogoChanged(
+                                state.logo.copy(
+                                    placeholder = false,
+                                    imageBytes = bytes,
+                                ),
+                            ),
+                        )
+                    },
+                    selectedFileName = selectedImageFileName,
                     modifier = Modifier.fillMaxWidth(),
                 )
 
-                if (selectedImageFile != null) {
+                if (selectedImageFileName != null) {
                     Card(modifier = Modifier.fillMaxWidth()) {
                         Column(
                             modifier = Modifier.padding(12.dp),
                             verticalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
                             Text(
-                                "✓ Image selected: ${selectedImageFile?.name}",
+                                "✓ Image selected: $selectedImageFileName",
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.primary,
                             )
@@ -338,7 +321,7 @@ fun QrStudioScreen(
                             "Padding: 10% safe zone around image edges",
                             style = MaterialTheme.typography.bodySmall,
                         )
-                        if (selectedImageFile != null) {
+                        if (selectedImageFileName != null) {
                             Text(
                                 "✓ Image loaded and centered in the QR code",
                                 style = MaterialTheme.typography.bodySmall,
