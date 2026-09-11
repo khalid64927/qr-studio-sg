@@ -106,6 +106,11 @@ actual fun exportQrAsSvg(
                     svg.append("""  <rect x="$logoLeft" y="$logoTop" width="$logoSize" height="$logoSize" fill="$bgHex"/>""").append("\n")
                 }
             }
+
+            // Draw the actual image if available
+            if (decodedImage != null && !logo.placeholder) {
+                drawLogoImageSvg(svg, decodedImage, logoLeft, logoTop, logoSize, logo.shape)
+            }
         }
 
         svg.append("""</svg>""")
@@ -182,4 +187,17 @@ private fun isWithinLogoAreaSvg(
     val cy = moduleY + moduleSize / 2
     return cx in (logoLeft - padding)..(logoLeft + logoSize + padding) &&
         cy in (logoTop - padding)..(logoTop + logoSize + padding)
+}
+
+private fun drawLogoImageSvg(
+    svg: StringBuilder,
+    decodedImage: androidx.compose.ui.graphics.ImageBitmap,
+    left: Int,
+    top: Int,
+    size: Int,
+    shape: sg.qrstudio.qr.LogoShape,
+) {
+    // For Wasm, we would need the original image bytes to embed as base64.
+    // Since decodedImage is just a placeholder in Wasm, we skip actual image rendering.
+    // The logo backing plate is rendered above, which provides visual feedback.
 }
