@@ -70,17 +70,18 @@ data class LogoConfig(
         result = 31 * result + (imageBytes?.contentHashCode() ?: 0)
         return result
     }
+
     companion object {
         const val MIN_SIZE_FRACTION = 0.08f
         const val MAX_SIZE_FRACTION = 0.30f
         const val DEFAULT_SIZE_FRACTION = 0.20f
+
         /** FR-306: amber warning above this share; MAX_SIZE_FRACTION is the hard cap. */
         const val WARNING_SIZE_FRACTION = 0.25f
     }
 
     /** FR-305: the slider range is 8-30%; anything outside that is a programming error. */
-    fun clampedSizeFraction(): Float =
-        sizeFraction.coerceIn(MIN_SIZE_FRACTION, MAX_SIZE_FRACTION)
+    fun clampedSizeFraction(): Float = sizeFraction.coerceIn(MIN_SIZE_FRACTION, MAX_SIZE_FRACTION)
 
     val showsSizeWarning: Boolean get() = enabled && sizeFraction > WARNING_SIZE_FRACTION
 }

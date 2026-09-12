@@ -9,7 +9,6 @@ package sg.qrstudio.payload
  * assert corrected expectations and keep the originals as structural and CRC references.
  */
 object GoldenVectors {
-
     /** uen 201403121W, amount 500, editable, expiry 20201231, ref TQINV-10001. */
     const val VECTOR_A =
         "00020101021226490009SG.PAYNOW010120210201403121W030110408202012315204000053037025403500" +

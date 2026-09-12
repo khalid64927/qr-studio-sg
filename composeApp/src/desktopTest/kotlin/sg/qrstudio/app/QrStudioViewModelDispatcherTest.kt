@@ -26,7 +26,6 @@ import kotlin.test.assertNotNull
  * proving `viewModelScope.launch` completes rather than throwing.
  */
 class QrStudioViewModelDispatcherTest {
-
     @BeforeTest
     fun ensureSwingDispatcherIsLinked() {
         // Referencing it is enough to fail the build if kotlinx-coroutines-swing is ever

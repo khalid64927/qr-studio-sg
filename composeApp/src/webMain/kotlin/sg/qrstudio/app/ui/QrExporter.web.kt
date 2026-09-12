@@ -53,9 +53,10 @@ private fun buildQrSvg(
 
     val svg = StringBuilder()
     svg.append("""<?xml version="1.0" encoding="UTF-8"?>""").append("\n")
-    svg.append(
-        """<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="$size" height="$size" viewBox="0 0 $size $size">""",
-    ).append("\n")
+    svg
+        .append(
+            """<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="$size" height="$size" viewBox="0 0 $size $size">""",
+        ).append("\n")
 
     val bgHex = appearance.background.toHexColor()
     svg.append("""  <rect width="$size" height="$size" fill="$bgHex"/>""").append("\n")
@@ -93,7 +94,10 @@ private fun buildQrSvg(
             }
             LogoShape.ROUNDED -> {
                 val radius = (logoSize * 0.2).toInt()
-                svg.append("""  <rect x="$logoLeft" y="$logoTop" width="$logoSize" height="$logoSize" rx="$radius" fill="$bgHex"/>""").append("\n")
+                svg
+                    .append(
+                        """  <rect x="$logoLeft" y="$logoTop" width="$logoSize" height="$logoSize" rx="$radius" fill="$bgHex"/>""",
+                    ).append("\n")
             }
             LogoShape.SQUARE -> {
                 svg.append("""  <rect x="$logoLeft" y="$logoTop" width="$logoSize" height="$logoSize" fill="$bgHex"/>""").append("\n")
@@ -111,8 +115,14 @@ private fun buildQrSvg(
 }
 
 /** Mirrors QrCanvas.kt's drawModule: same three shapes, same corner/inset ratios. */
-private fun svgModule(x: Int, y: Int, size: Int, colourHex: String, shape: ModuleShape): String {
-    return when (shape) {
+private fun svgModule(
+    x: Int,
+    y: Int,
+    size: Int,
+    colourHex: String,
+    shape: ModuleShape,
+): String =
+    when (shape) {
         ModuleShape.SQUARE -> """    <rect x="$x" y="$y" width="$size" height="$size" fill="$colourHex"/>"""
         ModuleShape.ROUNDED -> {
             val r = (size * 0.3).toInt()
@@ -125,7 +135,6 @@ private fun svgModule(x: Int, y: Int, size: Int, colourHex: String, shape: Modul
             """    <circle cx="$cx" cy="$cy" r="$radius" fill="$colourHex"/>"""
         }
     }
-}
 
 private fun drawLogoImageSvg(
     svg: StringBuilder,
@@ -135,15 +144,18 @@ private fun drawLogoImageSvg(
     size: Int,
 ) {
     try {
-        val image = org.jetbrains.skia.Image.makeFromEncoded(imageBytes)
+        val image =
+            org.jetbrains.skia.Image
+                .makeFromEncoded(imageBytes)
         val padding = 5
         val availableSize = size - (padding * 2)
         val imageAspectRatio = image.width.toFloat() / image.height
-        val (scaledWidth, scaledHeight) = if (imageAspectRatio > 1f) {
-            availableSize to (availableSize / imageAspectRatio).toInt()
-        } else {
-            (availableSize * imageAspectRatio).toInt() to availableSize
-        }
+        val (scaledWidth, scaledHeight) =
+            if (imageAspectRatio > 1f) {
+                availableSize to (availableSize / imageAspectRatio).toInt()
+            } else {
+                (availableSize * imageAspectRatio).toInt() to availableSize
+            }
 
         val imageLeft = left + padding + (availableSize - scaledWidth) / 2
         val imageTop = top + padding + (availableSize - scaledHeight) / 2
@@ -153,15 +165,20 @@ private fun drawLogoImageSvg(
         val pngData = image.encodeToData(org.jetbrains.skia.EncodedImageFormat.PNG) ?: return
         val base64Image = encodeBytesToBase64(pngData.bytes)
 
-        svg.append(
-            """  <image x="$imageLeft" y="$imageTop" width="$scaledWidth" height="$scaledHeight" xlink:href="data:image/png;base64,$base64Image"/>""",
-        ).append("\n")
+        svg
+            .append(
+                """  <image x="$imageLeft" y="$imageTop" width="$scaledWidth" height="$scaledHeight" xlink:href="data:image/png;base64,$base64Image"/>""",
+            ).append("\n")
     } catch (e: Exception) {
         // Skip embedding on failure; the backing plate above stays visible.
     }
 }
 
-private fun downloadFile(content: String, fileName: String, mimeType: String) {
+private fun downloadFile(
+    content: String,
+    fileName: String,
+    mimeType: String,
+) {
     try {
         // Create base64-encoded data URL for download
         val base64 = encodeBytesToBase64(content.encodeToByteArray())

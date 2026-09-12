@@ -25,10 +25,16 @@ data class PayNowPayload(
 
 sealed interface PayloadResult {
     /** [warnings] are non-blocking; the payload is safe to encode. */
-    data class Success(val payload: PayNowPayload, val warnings: List<ValidationIssue>) : PayloadResult
+    data class Success(
+        val payload: PayNowPayload,
+        val warnings: List<ValidationIssue>,
+    ) : PayloadResult
 
     /** FR-151: export stays blocked while this is the outcome. */
-    data class Invalid(val errors: List<ValidationIssue>, val warnings: List<ValidationIssue>) : PayloadResult
+    data class Invalid(
+        val errors: List<ValidationIssue>,
+        val warnings: List<ValidationIssue>,
+    ) : PayloadResult
 }
 
 /**
@@ -43,7 +49,6 @@ sealed interface PayloadResult {
  * There is no code path anywhere that patches or splices an existing payload.
  */
 object PayNowPayloadBuilder {
-
     private const val TAG_PAYLOAD_FORMAT = "00"
     private const val TAG_POINT_OF_INITIATION = "01"
     private const val TAG_MERCHANT_ACCOUNT = "26"
@@ -65,61 +70,73 @@ object PayNowPayloadBuilder {
     private const val COUNTRY_SG = "SG"
     private const val MERCHANT_CITY = "Singapore"
 
-    fun build(config: PayNowConfig, today: LocalDate): PayloadResult {
+    fun build(
+        config: PayNowConfig,
+        today: LocalDate,
+    ): PayloadResult {
         val validation = Validation.validate(config, today)
         if (!validation.isValid) {
             return PayloadResult.Invalid(validation.errors, validation.warnings)
         }
 
         // ---- Normalise every input once, up front (FR-113) ----------------------
-        val normalisedProxy = when (config.proxyType) {
-            ProxyType.MOBILE -> Validation.normaliseMobile(config.proxyValue)
-                ?: return PayloadResult.Invalid(
-                    listOf(
-                        ValidationIssue(
-                            Field.PROXY,
-                            IssueCode.MOBILE_BAD_FORMAT,
-                            ValidationIssue.Severity.ERROR,
-                            PayloadStrings.of(IssueCode.MOBILE_BAD_FORMAT),
-                        ),
-                    ),
-                    validation.warnings,
-                )
+        val normalisedProxy =
+            when (config.proxyType) {
+                ProxyType.MOBILE ->
+                    Validation.normaliseMobile(config.proxyValue)
+                        ?: return PayloadResult.Invalid(
+                            listOf(
+                                ValidationIssue(
+                                    Field.PROXY,
+                                    IssueCode.MOBILE_BAD_FORMAT,
+                                    ValidationIssue.Severity.ERROR,
+                                    PayloadStrings.of(IssueCode.MOBILE_BAD_FORMAT),
+                                ),
+                            ),
+                            validation.warnings,
+                        )
 
-            ProxyType.UEN -> Validation.normaliseUen(config.proxyValue)
-        }
+                ProxyType.UEN -> Validation.normaliseUen(config.proxyValue)
+            }
 
-        val cents = config.amount?.trim()?.takeIf { it.isNotEmpty() }?.let { Validation.parseAmountToCents(it) }
+        val cents =
+            config.amount
+                ?.trim()
+                ?.takeIf { it.isNotEmpty() }
+                ?.let { Validation.parseAmountToCents(it) }
         val amount = cents?.let { Validation.formatCents(it) } // FR-105: "500" -> "500.00"
-        val amountEditable = config.effectiveAmountEditable    // FR-106
+        val amountEditable = config.effectiveAmountEditable // FR-106
 
         val expiry = config.expiry ?: PayNowDefaults.defaultExpiry(today) // FR-108
-        val merchantName = sanitiseText(config.merchantName, PayNowDefaults.MERCHANT_NAME_MAX_LENGTH)
-            .ifEmpty { PayNowDefaults.MERCHANT_NAME } // FR-110 / OQ-4
+        val merchantName =
+            sanitiseText(config.merchantName, PayNowDefaults.MERCHANT_NAME_MAX_LENGTH)
+                .ifEmpty { PayNowDefaults.MERCHANT_NAME } // FR-110 / OQ-4
         val reference = sanitiseText(config.reference, PayNowDefaults.REFERENCE_MAX_LENGTH).ifEmpty { null }
 
-        val raw = assemble(
-            proxyTypeCode = config.proxyType.code,
-            proxyValue = normalisedProxy,
-            amount = amount,
-            amountEditable = amountEditable,
-            expiry = formatExpiry(expiry),
-            reference = reference,
-            merchantName = merchantName,
-        )
-
-        return PayloadResult.Success(
-            payload = PayNowPayload(
-                raw = raw,
-                normalisedProxy = normalisedProxy,
-                proxyDisplay = displayProxy(config.proxyType, normalisedProxy),
+        val raw =
+            assemble(
+                proxyTypeCode = config.proxyType.code,
+                proxyValue = normalisedProxy,
                 amount = amount,
                 amountEditable = amountEditable,
-                expiry = expiry,
+                expiry = formatExpiry(expiry),
                 reference = reference,
                 merchantName = merchantName,
-                pointOfInitiation = pointOfInitiation(amount, amountEditable),
-            ),
+            )
+
+        return PayloadResult.Success(
+            payload =
+                PayNowPayload(
+                    raw = raw,
+                    normalisedProxy = normalisedProxy,
+                    proxyDisplay = displayProxy(config.proxyType, normalisedProxy),
+                    amount = amount,
+                    amountEditable = amountEditable,
+                    expiry = expiry,
+                    reference = reference,
+                    merchantName = merchantName,
+                    pointOfInitiation = pointOfInitiation(amount, amountEditable),
+                ),
             warnings = validation.warnings,
         )
     }
@@ -132,8 +149,10 @@ object PayNowPayloadBuilder {
      * Fallback recorded for TC-05: if bank testing shows any scanner rejecting "11",
      * return POIM_DYNAMIC unconditionally here and note the bank and app version.
      */
-    internal fun pointOfInitiation(amount: String?, amountEditable: Boolean): String =
-        if (amount != null && !amountEditable) POIM_DYNAMIC else POIM_STATIC
+    internal fun pointOfInitiation(
+        amount: String?,
+        amountEditable: Boolean,
+    ): String = if (amount != null && !amountEditable) POIM_DYNAMIC else POIM_STATIC
 
     /**
      * Pure EMVCo assembly over already-normalised values.
@@ -151,25 +170,27 @@ object PayNowPayloadBuilder {
         reference: String?,
         merchantName: String,
     ): String {
-        val merchantAccount = Tlv.template(
-            TAG_MERCHANT_ACCOUNT,
-            listOf(
-                Tlv.field("00", PAYNOW_GUID),
-                Tlv.field("01", proxyTypeCode),                   // FR-104
-                Tlv.field("02", proxyValue),                      // FR-102 / FR-103
-                Tlv.field("03", if (amountEditable) "1" else "0"),
-                Tlv.field("04", expiry),                          // FR-108, subtag 04 (not 05)
-            ),
-        )
+        val merchantAccount =
+            Tlv.template(
+                TAG_MERCHANT_ACCOUNT,
+                listOf(
+                    Tlv.field("00", PAYNOW_GUID),
+                    Tlv.field("01", proxyTypeCode), // FR-104
+                    Tlv.field("02", proxyValue), // FR-102 / FR-103
+                    Tlv.field("03", if (amountEditable) "1" else "0"),
+                    Tlv.field("04", expiry), // FR-108, subtag 04 (not 05)
+                ),
+            )
 
         val pointOfInitiation = pointOfInitiation(amount, amountEditable)
 
-        val builder = StringBuilder()
-            .append(Tlv.field(TAG_PAYLOAD_FORMAT, PAYLOAD_FORMAT_INDICATOR))
-            .append(Tlv.field(TAG_POINT_OF_INITIATION, pointOfInitiation))
-            .append(merchantAccount)
-            .append(Tlv.field(TAG_MERCHANT_CATEGORY, MERCHANT_CATEGORY_CODE))
-            .append(Tlv.field(TAG_CURRENCY, CURRENCY_SGD))
+        val builder =
+            StringBuilder()
+                .append(Tlv.field(TAG_PAYLOAD_FORMAT, PAYLOAD_FORMAT_INDICATOR))
+                .append(Tlv.field(TAG_POINT_OF_INITIATION, pointOfInitiation))
+                .append(merchantAccount)
+                .append(Tlv.field(TAG_MERCHANT_CATEGORY, MERCHANT_CATEGORY_CODE))
+                .append(Tlv.field(TAG_CURRENCY, CURRENCY_SGD))
 
         // D9: the reference implementation emits "54010" (an amount of zero) when no amount
         // is set. EMVCo treats tag 54 as conditional — absent when the amount is not known
@@ -208,16 +229,27 @@ object PayNowPayloadBuilder {
      * Truncation is safe at character level precisely because the result is ASCII-only,
      * where one character is exactly one UTF-8 byte.
      */
-    internal fun sanitiseText(raw: String?, maxLength: Int): String =
-        raw.orEmpty().trim().filter { it.code in 0x20..0x7E }.take(maxLength)
+    internal fun sanitiseText(
+        raw: String?,
+        maxLength: Int,
+    ): String =
+        raw
+            .orEmpty()
+            .trim()
+            .filter { it.code in 0x20..0x7E }
+            .take(maxLength)
 
     /** FR-153: group the digits so a mistyped one stands out at a glance. */
-    internal fun displayProxy(type: ProxyType, normalised: String): String = when (type) {
-        ProxyType.MOBILE -> {
-            val digits = normalised.removePrefix("+65")
-            "+65 ${digits.take(4)} ${digits.drop(4)}"
-        }
+    internal fun displayProxy(
+        type: ProxyType,
+        normalised: String,
+    ): String =
+        when (type) {
+            ProxyType.MOBILE -> {
+                val digits = normalised.removePrefix("+65")
+                "+65 ${digits.take(4)} ${digits.drop(4)}"
+            }
 
-        ProxyType.UEN -> normalised
-    }
+            ProxyType.UEN -> normalised
+        }
 }

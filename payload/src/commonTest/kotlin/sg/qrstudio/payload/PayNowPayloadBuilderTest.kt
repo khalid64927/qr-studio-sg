@@ -8,14 +8,19 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class PayNowPayloadBuilderTest {
-
-    private fun succeed(config: PayNowConfig, today: LocalDate = LocalDates.TODAY): PayNowPayload {
+    private fun succeed(
+        config: PayNowConfig,
+        today: LocalDate = LocalDates.TODAY,
+    ): PayNowPayload {
         val result = PayNowPayloadBuilder.build(config, today)
         assertTrue(result is PayloadResult.Success, "Expected success but got $result")
         return result.payload
     }
 
-    private fun fail(config: PayNowConfig, today: LocalDate = LocalDates.TODAY): PayloadResult.Invalid {
+    private fun fail(
+        config: PayNowConfig,
+        today: LocalDate = LocalDates.TODAY,
+    ): PayloadResult.Invalid {
         val result = PayNowPayloadBuilder.build(config, today)
         assertTrue(result is PayloadResult.Invalid, "Expected failure but got $result")
         return result
@@ -30,18 +35,19 @@ class PayNowPayloadBuilderTest {
      */
     @Test
     fun `AC-06 vector A reproduces exactly with D2 and D3 corrections`() {
-        val payload = succeed(
-            PayNowConfig(
-                proxyType = ProxyType.UEN,
-                proxyValue = "201403121W",
-                amount = "500",
-                amountEditable = true,
-                expiry = LocalDate(2020, 12, 31),
-                reference = "TQINV-10001",
-                merchantName = "ACME Pte Ltd.",
-            ),
-            today = LocalDate(2020, 1, 1),
-        )
+        val payload =
+            succeed(
+                PayNowConfig(
+                    proxyType = ProxyType.UEN,
+                    proxyValue = "201403121W",
+                    amount = "500",
+                    amountEditable = true,
+                    expiry = LocalDate(2020, 12, 31),
+                    reference = "TQINV-10001",
+                    merchantName = "ACME Pte Ltd.",
+                ),
+                today = LocalDate(2020, 1, 1),
+            )
         assertEquals(
             "00020101021126490009SG.PAYNOW010120210201403121W03011040820201231520400005303702" +
                 "5406500.005802SG5913ACME Pte Ltd.6009Singapore62150111TQINV-100016304815C",
@@ -52,14 +58,15 @@ class PayNowPayloadBuilderTest {
     /** Vector B: no amount, no reference. Field 54 and template 62 both disappear. */
     @Test
     fun `AC-06 vector B reproduces exactly with D2 D3 and D9 corrections`() {
-        val payload = succeed(
-            PayNowConfig(
-                proxyType = ProxyType.UEN,
-                proxyValue = "201403121W",
-                expiry = LocalDate(2030, 12, 31),
-                merchantName = "ACME Pte Ltd.",
-            ),
-        )
+        val payload =
+            succeed(
+                PayNowConfig(
+                    proxyType = ProxyType.UEN,
+                    proxyValue = "201403121W",
+                    expiry = LocalDate(2030, 12, 31),
+                    merchantName = "ACME Pte Ltd.",
+                ),
+            )
         assertEquals(
             "00020101021126490009SG.PAYNOW010120210201403121W03011040820301231520400005303702" +
                 "5802SG5913ACME Pte Ltd.6009Singapore6304B69E",
@@ -78,15 +85,16 @@ class PayNowPayloadBuilderTest {
         // registrable UEN, so it is fed to the encoder directly. What it proves is
         // encoder equivalence with an independent implementation: tag 26, expiry at
         // subtag 04, reference at 62.01, two-decimal amount, and a matching CRC.
-        val raw = PayNowPayloadBuilder.assemble(
-            proxyTypeCode = ProxyType.UEN.code,
-            proxyValue = "12345678",
-            amount = "0.99",
-            amountEditable = false,
-            expiry = "20260304",
-            reference = "testordernumber12345678",
-            merchantName = "testcompany",
-        )
+        val raw =
+            PayNowPayloadBuilder.assemble(
+                proxyTypeCode = ProxyType.UEN.code,
+                proxyValue = "12345678",
+                amount = "0.99",
+                amountEditable = false,
+                expiry = "20260304",
+                reference = "testordernumber12345678",
+                merchantName = "testcompany",
+            )
         assertEquals(GoldenVectors.VECTOR_C, raw)
     }
 
@@ -117,9 +125,10 @@ class PayNowPayloadBuilderTest {
 
     @Test
     fun `AC-04 point of initiation is 12 for a fixed amount and 11 otherwise`() {
-        val fixed = succeed(
-            PayNowConfig(ProxyType.MOBILE, "91234567", amount = "12.50", amountEditable = false),
-        )
+        val fixed =
+            succeed(
+                PayNowConfig(ProxyType.MOBILE, "91234567", amount = "12.50", amountEditable = false),
+            )
         assertEquals("12", fixed.pointOfInitiation)
         assertTrue(fixed.raw.startsWith("000201010212"))
 
@@ -149,7 +158,12 @@ class PayNowPayloadBuilderTest {
     fun `AC-15 a merchant name with emoji is rejected with a message not a crash`() {
         val result = fail(PayNowConfig(ProxyType.MOBILE, "91234567", merchantName = "Café 🍰 Bakery"))
         assertTrue(result.errors.any { it.code == IssueCode.MERCHANT_NAME_NON_ASCII })
-        assertTrue(result.errors.first().message.isNotBlank())
+        assertTrue(
+            result.errors
+                .first()
+                .message
+                .isNotBlank(),
+        )
     }
 
     // ---- FR-level behaviour ----------------------------------------------------
@@ -169,18 +183,20 @@ class PayNowPayloadBuilderTest {
 
     @Test
     fun `FR-110 a long merchant name is truncated to 25 characters`() {
-        val payload = succeed(
-            PayNowConfig(ProxyType.MOBILE, "91234567", merchantName = "A".repeat(40)),
-        )
+        val payload =
+            succeed(
+                PayNowConfig(ProxyType.MOBILE, "91234567", merchantName = "A".repeat(40)),
+            )
         assertEquals(25, payload.merchantName.length)
         assertTrue(payload.raw.contains("5925" + "A".repeat(25)))
     }
 
     @Test
     fun `FR-113 surrounding whitespace is trimmed before encoding`() {
-        val payload = succeed(
-            PayNowConfig(ProxyType.UEN, "  201403121W  ", merchantName = "  Acme  ", reference = "  INV-1  "),
-        )
+        val payload =
+            succeed(
+                PayNowConfig(ProxyType.UEN, "  201403121W  ", merchantName = "  Acme  ", reference = "  INV-1  "),
+            )
         assertEquals("201403121W", payload.normalisedProxy)
         assertEquals("Acme", payload.merchantName)
         assertEquals("INV-1", payload.reference)

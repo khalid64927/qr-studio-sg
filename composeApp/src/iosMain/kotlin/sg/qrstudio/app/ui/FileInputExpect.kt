@@ -16,8 +16,11 @@ actual fun WebFileInputButton(
         onClick = { /* FileKit handles iOS file picker */ },
         label = {
             Text(
-                if (selectedFileName != null) "✓ Image selected: $selectedFileName"
-                else "📸 Choose image"
+                if (selectedFileName != null) {
+                    "✓ Image selected: $selectedFileName"
+                } else {
+                    "📸 Choose image"
+                },
             )
         },
         modifier = modifier,

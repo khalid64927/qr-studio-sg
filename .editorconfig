@@ -1,0 +1,16 @@
+root = true
+
+[*.{kt,kts}]
+indent_size = 4
+indent_style = space
+max_line_length = 140
+
+# @Composable functions are PascalCase by convention (App, QrCanvas,
+# ExpandableSection...) — that's the Compose style guide, not a naming mistake, so
+# ktlint's default lowercase-camelCase rule is told to leave them alone.
+ktlint_function_naming_ignore_when_annotated_with = Composable
+
+# Every Kotlin/Native and Kotlin/JS-family target has its own entry point file
+# conventionally named main.kt (desktopMain/main.kt, webMain/main.kt, ...); that's
+# the multiplatform convention this project follows deliberately, not a violation.
+ktlint_standard_filename = disabled

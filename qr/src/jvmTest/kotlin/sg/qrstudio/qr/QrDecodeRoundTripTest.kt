@@ -27,7 +27,6 @@ import kotlin.test.assertTrue
  * nothing. JVM test source set only — ZXing never ships in the app.
  */
 class QrDecodeRoundTripTest {
-
     /** Renders at a generous module size so the test measures encoding, not resampling. */
     private fun ModuleMatrix.toImage(modulePixels: Int = 8): BufferedImage {
         val pixels = size * modulePixels
@@ -50,13 +49,14 @@ class QrDecodeRoundTripTest {
     private fun decode(image: BufferedImage): String {
         val source = BufferedImageLuminanceSource(image)
         val bitmap = BinaryBitmap(HybridBinarizer(source))
-        val result = MultiFormatReader().decode(
-            bitmap,
-            mapOf(
-                DecodeHintType.POSSIBLE_FORMATS to listOf(BarcodeFormat.QR_CODE),
-                DecodeHintType.TRY_HARDER to true,
-            ),
-        )
+        val result =
+            MultiFormatReader().decode(
+                bitmap,
+                mapOf(
+                    DecodeHintType.POSSIBLE_FORMATS to listOf(BarcodeFormat.QR_CODE),
+                    DecodeHintType.TRY_HARDER to true,
+                ),
+            )
         return result.text
     }
 
@@ -81,15 +81,16 @@ class QrDecodeRoundTripTest {
     @Test
     fun `payloads of varying length and content round-trip`() {
         val random = Random(seed = 20260909)
-        val payloads = buildList {
-            add("A")
-            add("0".repeat(50))
-            add(paynowPayload)
-            repeat(12) {
-                val length = random.nextInt(20, 300)
-                add((1..length).map { (('A'..'Z') + ('0'..'9') + '.' + '-' + '+').random(random) }.joinToString(""))
+        val payloads =
+            buildList {
+                add("A")
+                add("0".repeat(50))
+                add(paynowPayload)
+                repeat(12) {
+                    val length = random.nextInt(20, 300)
+                    add((1..length).map { (('A'..'Z') + ('0'..'9') + '.' + '-' + '+').random(random) }.joinToString(""))
+                }
             }
-        }
         payloads.forEach { payload ->
             val matrix = QrEncoder.encode(payload, ErrorCorrection.HIGH)
             assertEquals(payload, decode(matrix.toImage()), "Failed for payload of length ${payload.length}")
@@ -156,12 +157,13 @@ class QrDecodeRoundTripTest {
      */
     @Test
     fun `an all-uppercase payload encodes and decodes without overflowing the symbol`() {
-        val alphanumericOnly = listOf(
-            "HTTPS://EXAMPLE.SG/PAY",
-            "0123456789 ABCDEFGHIJKLMNOPQRSTUVWXYZ $%*+-./:",
-            "A".repeat(200),
-            "SG.PAYNOW+6591234567/INV-2026",
-        )
+        val alphanumericOnly =
+            listOf(
+                "HTTPS://EXAMPLE.SG/PAY",
+                "0123456789 ABCDEFGHIJKLMNOPQRSTUVWXYZ $%*+-./:",
+                "A".repeat(200),
+                "SG.PAYNOW+6591234567/INV-2026",
+            )
         alphanumericOnly.forEach { payload ->
             val matrix = QrEncoder.encode(payload, ErrorCorrection.HIGH)
             assertEquals(payload, decode(matrix.toImage()), "Failed for '$payload'")

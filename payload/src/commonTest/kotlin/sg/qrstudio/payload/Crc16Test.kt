@@ -6,7 +6,6 @@ import kotlin.test.assertTrue
 
 /** TC-01: CRC-16/CCITT-FALSE against known vectors, including the padding case. */
 class Crc16Test {
-
     @Test
     fun check_string_from_the_specification() {
         // The canonical CRC-16/CCITT-FALSE check value for "123456789" is 0x29B1.

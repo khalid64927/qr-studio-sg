@@ -6,7 +6,6 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
 class QrEncoderTest {
-
     private val samplePayload =
         "00020101021126490009SG.PAYNOW010120210201403121W03011040820301231520400005303702" +
             "5802SG5913ACME Pte Ltd.6009Singapore6304B69E"

@@ -2,7 +2,6 @@ package sg.qrstudio.app.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -18,6 +17,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountBalance
@@ -35,24 +35,15 @@ import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Slider
-import androidx.compose.material3.Switch
 import androidx.compose.material3.SuggestionChip
 import androidx.compose.material3.SuggestionChipDefaults
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import sg.qrstudio.qr.AppearanceConfig
-import sg.qrstudio.qr.Contrast
-import sg.qrstudio.qr.EyeStyle
-import sg.qrstudio.qr.LogoConfig
-import sg.qrstudio.qr.LogoShape
-import sg.qrstudio.qr.ModuleShape
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -60,6 +51,10 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import sg.qrstudio.payload.Field
 import sg.qrstudio.payload.ProxyType
+import sg.qrstudio.qr.Contrast
+import sg.qrstudio.qr.LogoConfig
+import sg.qrstudio.qr.LogoShape
+import sg.qrstudio.qr.ModuleShape
 
 /**
  * §8 breakpoint. Below this the screen is a single scrolling column; at or above it, the
@@ -304,9 +299,10 @@ fun QrStudioScreen(
                 // Logo dimension guide
                 Text("Logo dimensions", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(8.dp)),
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(8.dp)),
                 ) {
                     Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Text(
@@ -335,11 +331,12 @@ fun QrStudioScreen(
 
         ExpandableSection(
             title = Strings.SECTION_APPEARANCE,
-            summary = when (state.appearance.contrastVerdict) {
-                Contrast.Verdict.BLOCKED -> "❌ Too dark — export blocked"
-                Contrast.Verdict.WARNING -> "⚠ Below 4.5:1"
-                Contrast.Verdict.OK -> "✓ ${(state.appearance.contrastRatio * 10).toInt() / 10.0}:1"
-            },
+            summary =
+                when (state.appearance.contrastVerdict) {
+                    Contrast.Verdict.BLOCKED -> "❌ Too dark — export blocked"
+                    Contrast.Verdict.WARNING -> "⚠ Below 4.5:1"
+                    Contrast.Verdict.OK -> "✓ ${(state.appearance.contrastRatio * 10).toInt() / 10.0}:1"
+                },
             expanded = appearanceExpanded,
             onToggle = { appearanceExpanded = !appearanceExpanded },
             leadingIcon = { Icon(Icons.Filled.Palette, contentDescription = null) },
@@ -436,9 +433,10 @@ fun QrStudioScreen(
                         onIntent(
                             QrStudioIntent.AppearanceChanged(
                                 state.appearance.copy(
-                                    eyeStyle = state.appearance.eyeStyle.copy(
-                                        colour = if (useModuleColour) null else state.appearance.foreground,
-                                    ),
+                                    eyeStyle =
+                                        state.appearance.eyeStyle.copy(
+                                            colour = if (useModuleColour) null else state.appearance.foreground,
+                                        ),
                                 ),
                             ),
                         )
@@ -473,11 +471,12 @@ fun QrStudioScreen(
         var exportExpanded by remember { mutableStateOf(false) }
         ExpandableSection(
             title = "Export",
-            summary = when {
-                !state.canExport -> "❌ Blocked — fix errors above"
-                state.payload != null -> "✓ Ready to export"
-                else -> "Waiting for valid QR"
-            },
+            summary =
+                when {
+                    !state.canExport -> "❌ Blocked — fix errors above"
+                    state.payload != null -> "✓ Ready to export"
+                    else -> "Waiting for valid QR"
+                },
             expanded = exportExpanded,
             onToggle = { exportExpanded = !exportExpanded },
             leadingIcon = { Icon(Icons.Filled.Download, contentDescription = null) },
@@ -493,12 +492,13 @@ fun QrStudioScreen(
                 }
             } else if (state.payload != null) {
                 Text("Download high-resolution QR code", style = MaterialTheme.typography.bodySmall)
-                val exportImage = if (state.logo.enabled && state.logo.imageBytes != null && !state.logo.placeholder) {
-                    val bytes = state.logo.imageBytes
-                    if (bytes != null) decodeImageBytes(bytes) else null
-                } else {
-                    null
-                }
+                val exportImage =
+                    if (state.logo.enabled && state.logo.imageBytes != null && !state.logo.placeholder) {
+                        val bytes = state.logo.imageBytes
+                        if (bytes != null) decodeImageBytes(bytes) else null
+                    } else {
+                        null
+                    }
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     SuggestionChip(
                         onClick = {
@@ -573,12 +573,16 @@ fun QrStudioScreen(
 
 /** Phones and narrow browser windows: preview near the top, everything scrolls together. */
 @Composable
-private fun CompactLayout(state: QrStudioUiState, sections: @Composable () -> Unit) {
+private fun CompactLayout(
+    state: QrStudioUiState,
+    sections: @Composable () -> Unit,
+) {
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(20.dp),
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         AppTitleBar()
@@ -594,7 +598,10 @@ private fun CompactLayout(state: QrStudioUiState, sections: @Composable () -> Un
  * window is wide — a phone-shaped window still gets [CompactLayout], correctly.
  */
 @Composable
-private fun ExpandedLayout(state: QrStudioUiState, sections: @Composable () -> Unit) {
+private fun ExpandedLayout(
+    state: QrStudioUiState,
+    sections: @Composable () -> Unit,
+) {
     Column(modifier = Modifier.fillMaxSize().padding(24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         AppTitleBar()
         Row(modifier = Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
@@ -602,10 +609,11 @@ private fun ExpandedLayout(state: QrStudioUiState, sections: @Composable () -> U
                 QrPreviewPanel(state)
             }
             Column(
-                modifier = Modifier
-                    .fillMaxHeight()
-                    .weight(1f)
-                    .verticalScroll(rememberScrollState()),
+                modifier =
+                    Modifier
+                        .fillMaxHeight()
+                        .weight(1f)
+                        .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
                 sections()
@@ -641,10 +649,11 @@ private fun QrPreviewPanel(state: QrStudioUiState) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp)) {
             Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .aspectRatio(1f)
-                    .padding(16.dp),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .aspectRatio(1f)
+                        .padding(16.dp),
                 contentAlignment = Alignment.Center,
             ) {
                 val matrix = state.matrix
@@ -732,14 +741,14 @@ private fun ColorSliders(
 
         // Preview swatch
         Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(40.dp)
-                .background(color.toComposeColor())
-                .border(1.dp, MaterialTheme.colorScheme.outline),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .height(40.dp)
+                    .background(color.toComposeColor())
+                    .border(1.dp, MaterialTheme.colorScheme.outline),
         )
     }
 }
 
-private fun Contrast.Rgb.toComposeColor(): Color =
-    Color(red = r, green = g, blue = b)
+private fun Contrast.Rgb.toComposeColor(): Color = Color(red = r, green = g, blue = b)

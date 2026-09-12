@@ -37,12 +37,14 @@ import kotlin.test.assertEquals
  * before enabling export.
  */
 class QrCanvasRenderTest {
-
     private val paynowPayload =
         "00020101021126490009SG.PAYNOW010120210201403121W03011040820301231520400005303702" +
             "5802SG5913ACME Pte Ltd.6009Singapore6304B69E"
 
-    private fun renderToImage(matrix: ModuleMatrix, pixels: Int): BufferedImage =
+    private fun renderToImage(
+        matrix: ModuleMatrix,
+        pixels: Int,
+    ): BufferedImage =
         ImageComposeScene(width = pixels, height = pixels, density = Density(1f)) {
             // Opaque white behind the canvas, matching QrPreviewPanel. Without it the
             // scene's untouched pixels stay transparent, and a luminance source reads
@@ -57,8 +59,9 @@ class QrCanvasRenderTest {
             }
         }.use { scene ->
             val skiaImage = scene.render()
-            val encoded = skiaImage.encodeToData(EncodedImageFormat.PNG)
-                ?: error("Failed to encode the rendered scene")
+            val encoded =
+                skiaImage.encodeToData(EncodedImageFormat.PNG)
+                    ?: error("Failed to encode the rendered scene")
             val decoded = ImageIO.read(encoded.bytes.inputStream())
             BufferedImage(decoded.width, decoded.height, BufferedImage.TYPE_INT_RGB).also { opaque ->
                 opaque.createGraphics().run {
@@ -69,13 +72,14 @@ class QrCanvasRenderTest {
         }
 
     private fun decode(image: BufferedImage): String =
-        MultiFormatReader().decode(
-            BinaryBitmap(HybridBinarizer(BufferedImageLuminanceSource(image))),
-            mapOf(
-                DecodeHintType.POSSIBLE_FORMATS to listOf(BarcodeFormat.QR_CODE),
-                DecodeHintType.TRY_HARDER to true,
-            ),
-        ).text
+        MultiFormatReader()
+            .decode(
+                BinaryBitmap(HybridBinarizer(BufferedImageLuminanceSource(image))),
+                mapOf(
+                    DecodeHintType.POSSIBLE_FORMATS to listOf(BarcodeFormat.QR_CODE),
+                    DecodeHintType.TRY_HARDER to true,
+                ),
+            ).text
 
     @Test
     fun `the Compose renderer produces a scannable code`() {

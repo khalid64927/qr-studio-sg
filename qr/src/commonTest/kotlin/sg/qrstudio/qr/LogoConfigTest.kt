@@ -6,7 +6,6 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class LogoConfigTest {
-
     @Test
     fun `FR-305 size is clamped to the 8 to 30 percent range`() {
         assertEquals(LogoConfig.MIN_SIZE_FRACTION, LogoConfig(sizeFraction = 0.01f).clampedSizeFraction())

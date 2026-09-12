@@ -12,6 +12,43 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Cheapest possible gate, runs before anything else compiles: formatting, Android
+  # Lint, and a known-vulnerability scan of every dependency. A style nit or a stale
+  # CVE should never be discovered only after the expensive jobs below have run.
+  quality:
+    name: Format, lint, dependency vulnerabilities
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Spotless (ktlint) format check
+        run: ./gradlew spotlessCheck --stacktrace
+      - name: Android Lint
+        run: ./gradlew :composeApp:lintDebug :payload:lintDebug :qr:lintDebug --stacktrace
+      - name: Upload lint reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lint-reports
+          path: '*/build/reports/lint-results-*.html'
+      # NVD_API_KEY is optional but strongly recommended: without it the NVD data feed
+      # update is rate-limited hard enough to make this step flaky/slow. Get one free at
+      # https://nvd.nist.gov/developers/request-an-api-key and add it as a repo secret.
+      - name: OWASP dependency-check
+        run: ./gradlew dependencyCheckAggregate --stacktrace
+        env:
+          NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
+      - name: Upload dependency-check report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dependency-check-report
+          path: build/reports/dependency-check-report.html
+
   # The payment-critical core. Runs first and cheapest: if the payload is wrong,
   # nothing else matters. Includes the TC-04 independent parser cross-check.
   payload:

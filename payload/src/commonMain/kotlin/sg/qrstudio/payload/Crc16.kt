@@ -13,23 +13,22 @@ package sg.qrstudio.payload
  * passes vector A and then fails silently on roughly one code in sixteen.
  */
 internal object Crc16 {
-
     fun ccittFalse(bytes: ByteArray): Int {
         var crc = 0xFFFF
         for (byte in bytes) {
             crc = crc xor ((byte.toInt() and 0xFF) shl 8)
             repeat(8) {
-                crc = if (crc and 0x8000 != 0) {
-                    ((crc shl 1) xor 0x1021) and 0xFFFF
-                } else {
-                    (crc shl 1) and 0xFFFF
-                }
+                crc =
+                    if (crc and 0x8000 != 0) {
+                        ((crc shl 1) xor 0x1021) and 0xFFFF
+                    } else {
+                        (crc shl 1) and 0xFFFF
+                    }
             }
         }
         return crc and 0xFFFF
     }
 
     /** Four uppercase hex digits, left-padded to width 4. See FR-109. */
-    fun ccittFalseHex(bytes: ByteArray): String =
-        ccittFalse(bytes).toString(16).uppercase().padStart(4, '0')
+    fun ccittFalseHex(bytes: ByteArray): String = ccittFalse(bytes).toString(16).uppercase().padStart(4, '0')
 }

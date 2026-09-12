@@ -16,7 +16,6 @@ import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
-import androidx.compose.ui.unit.dp
 import sg.qrstudio.qr.AppearanceConfig
 import sg.qrstudio.qr.Contrast
 import sg.qrstudio.qr.LogoConfig
@@ -42,14 +41,15 @@ fun QrCanvas(
     logo: LogoConfig = LogoConfig(),
 ) {
     // Decode the image once and cache it
-    val decodedImage = remember(logo.imageBytes, logo.placeholder, logo.enabled) {
-        val bytes = logo.imageBytes
-        if (logo.enabled && bytes != null && !logo.placeholder) {
-            decodeImageBytes(bytes)
-        } else {
-            null
+    val decodedImage =
+        remember(logo.imageBytes, logo.placeholder, logo.enabled) {
+            val bytes = logo.imageBytes
+            if (logo.enabled && bytes != null && !logo.placeholder) {
+                decodeImageBytes(bytes)
+            } else {
+                null
+            }
         }
-    }
 
     Canvas(modifier = modifier) {
         drawQrMatrix(matrix, appearance, logo, decodedImage)
@@ -148,15 +148,22 @@ private fun withinLogoArea(
         cy in (logoTop - padding)..(logoTop + logoSize + padding)
 }
 
-private fun DrawScope.drawModule(x: Float, y: Float, size: Float, colour: Color, shape: ModuleShape) {
+private fun DrawScope.drawModule(
+    x: Float,
+    y: Float,
+    size: Float,
+    colour: Color,
+    shape: ModuleShape,
+) {
     when (shape) {
         ModuleShape.SQUARE -> drawRect(colour, topLeft = Offset(x, y), size = Size(size, size))
-        ModuleShape.ROUNDED -> drawRoundRect(
-            color = colour,
-            topLeft = Offset(x, y),
-            size = Size(size, size),
-            cornerRadius = CornerRadius(size * 0.3f, size * 0.3f),
-        )
+        ModuleShape.ROUNDED ->
+            drawRoundRect(
+                color = colour,
+                topLeft = Offset(x, y),
+                size = Size(size, size),
+                cornerRadius = CornerRadius(size * 0.3f, size * 0.3f),
+            )
         ModuleShape.DOT -> drawCircle(colour, radius = size / 2.2f, center = Offset(x + size / 2f, y + size / 2f))
     }
 }
@@ -180,25 +187,27 @@ private fun DrawScope.drawLogoImage(
     when (shape) {
         LogoShape.CIRCLE -> drawCircle(plateColour, radius = size / 2f, center = center)
         LogoShape.SQUARE -> drawRect(plateColour, topLeft = Offset(left, top), size = Size(size, size))
-        LogoShape.ROUNDED -> drawRoundRect(
-            color = plateColour,
-            topLeft = Offset(left, top),
-            size = Size(size, size),
-            cornerRadius = CornerRadius(size * 0.2f, size * 0.2f),
-        )
+        LogoShape.ROUNDED ->
+            drawRoundRect(
+                color = plateColour,
+                topLeft = Offset(left, top),
+                size = Size(size, size),
+                cornerRadius = CornerRadius(size * 0.2f, size * 0.2f),
+            )
     }
 
     // Calculate scaled image size maintaining aspect ratio, with 5dp padding for safe area
     val padding = 5f // 5dp padding around image edges
     val availableSize = size - (padding * 2)
     val imageAspectRatio = image.width.toFloat() / image.height
-    val (scaledWidth, scaledHeight) = if (imageAspectRatio > 1f) {
-        // Wider than tall
-        availableSize to (availableSize / imageAspectRatio)
-    } else {
-        // Taller than wide
-        (availableSize * imageAspectRatio) to availableSize
-    }
+    val (scaledWidth, scaledHeight) =
+        if (imageAspectRatio > 1f) {
+            // Wider than tall
+            availableSize to (availableSize / imageAspectRatio)
+        } else {
+            // Taller than wide
+            (availableSize * imageAspectRatio) to availableSize
+        }
 
     // Center the scaled image
     val imageLeft = center.x - (scaledWidth / 2f)
@@ -219,17 +228,24 @@ private fun DrawScope.drawLogoImage(
  * and the contrast/size gates all act on. When a real image is selected, drawLogoImage
  * renders it with this backing plate underneath (§9.3).
  */
-private fun DrawScope.drawLogoPlaceholder(left: Float, top: Float, size: Float, shape: LogoShape, plateColour: Color) {
+private fun DrawScope.drawLogoPlaceholder(
+    left: Float,
+    top: Float,
+    size: Float,
+    shape: LogoShape,
+    plateColour: Color,
+) {
     val center = Offset(left + size / 2f, top + size / 2f)
     when (shape) {
         LogoShape.CIRCLE -> drawCircle(plateColour, radius = size / 2f, center = center)
         LogoShape.SQUARE -> drawRect(plateColour, topLeft = Offset(left, top), size = Size(size, size))
-        LogoShape.ROUNDED -> drawRoundRect(
-            color = plateColour,
-            topLeft = Offset(left, top),
-            size = Size(size, size),
-            cornerRadius = CornerRadius(size * 0.2f, size * 0.2f),
-        )
+        LogoShape.ROUNDED ->
+            drawRoundRect(
+                color = plateColour,
+                topLeft = Offset(left, top),
+                size = Size(size, size),
+                cornerRadius = CornerRadius(size * 0.2f, size * 0.2f),
+            )
     }
 }
 
@@ -250,7 +266,10 @@ fun LogoPlaceholderMark(modifier: Modifier = Modifier) {
 }
 
 /** Convenience for callers that want the preview to land on an exact module boundary. */
-fun idealPreviewSize(matrix: ModuleMatrix, target: Dp): Dp {
+fun idealPreviewSize(
+    matrix: ModuleMatrix,
+    target: Dp,
+): Dp {
     val modules = matrix.size
     val perModule = floor(target.value / modules).coerceAtLeast(1f)
     return Dp(perModule * modules)

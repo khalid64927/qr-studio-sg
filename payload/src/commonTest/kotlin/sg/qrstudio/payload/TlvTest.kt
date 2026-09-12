@@ -7,7 +7,6 @@ import kotlin.test.assertTrue
 
 /** TC-01: TLV assembly, length-prefix padding, and UTF-8 byte counts (FR-111). */
 class TlvTest {
-
     @Test
     fun `length prefixes are zero-padded to two digits`() {
         assertEquals("0002SG", Tlv.field("00", "SG"))

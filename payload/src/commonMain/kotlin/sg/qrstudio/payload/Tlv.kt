@@ -12,11 +12,13 @@ package sg.qrstudio.payload
  * regardless so the encoder is correct by construction rather than by convention.
  */
 internal object Tlv {
-
     /** Maximum value length representable by a two-digit EMVCo length prefix. */
     const val MAX_VALUE_BYTES = 99
 
-    fun field(id: String, value: String): String {
+    fun field(
+        id: String,
+        value: String,
+    ): String {
         require(id.length == 2) { "EMVCo tag must be exactly 2 characters, got '$id'" }
         val byteCount = value.encodeToByteArray().size // UTF-8 — FR-111
         require(byteCount <= MAX_VALUE_BYTES) {
@@ -26,6 +28,8 @@ internal object Tlv {
     }
 
     /** Builds a nested template (e.g. 26, 62) from already-encoded child fields. */
-    fun template(id: String, children: List<String>): String =
-        field(id, children.joinToString(separator = ""))
+    fun template(
+        id: String,
+        children: List<String>,
+    ): String = field(id, children.joinToString(separator = ""))
 }

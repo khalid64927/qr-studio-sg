@@ -16,17 +16,15 @@ package sg.qrstudio.qr
  * Scores are computed over the symbol only; the quiet zone is not part of the penalty.
  */
 internal object MaskPenalty {
-
-    private const val PENALTY_ADJACENT = 3      // rule 1 base, for a run of 5
-    private const val PENALTY_BLOCK = 3         // rule 2, per 2x2 same-colour block
-    private const val PENALTY_FINDER_LIKE = 40  // rule 3, per false finder pattern
-    private const val PENALTY_BALANCE = 10      // rule 4, per 5% deviation from half dark
+    private const val PENALTY_ADJACENT = 3 // rule 1 base, for a run of 5
+    private const val PENALTY_BLOCK = 3 // rule 2, per 2x2 same-colour block
+    private const val PENALTY_FINDER_LIKE = 40 // rule 3, per false finder pattern
+    private const val PENALTY_BALANCE = 10 // rule 4, per 5% deviation from half dark
 
     /** The 1:1:3:1:1 finder signature, which must not appear outside the real ones. */
     private val FINDER_PATTERN = booleanArrayOf(true, false, true, true, true, false, true)
 
-    fun score(dark: Array<BooleanArray>): Int =
-        adjacentRuns(dark) + blocks(dark) + finderLike(dark) + balance(dark)
+    fun score(dark: Array<BooleanArray>): Int = adjacentRuns(dark) + blocks(dark) + finderLike(dark) + balance(dark)
 
     /** Rule 1: five or more adjacent modules of the same colour, in rows and columns. */
     private fun adjacentRuns(dark: Array<BooleanArray>): Int {
@@ -81,7 +79,10 @@ internal object MaskPenalty {
         val size = dark.size
         var penalty = 0
 
-        fun matchesAt(get: (Int) -> Boolean, start: Int): Boolean {
+        fun matchesAt(
+            get: (Int) -> Boolean,
+            start: Int,
+        ): Boolean {
             for (offset in FINDER_PATTERN.indices) {
                 if (get(start + offset) != FINDER_PATTERN[offset]) return false
             }

@@ -55,14 +55,21 @@ class ModuleMatrix internal constructor(
     /** Width of the symbol itself, excluding the quiet zone. */
     val contentSize: Int get() = size - 2 * quietZone
 
-    private fun index(x: Int, y: Int) = y * size + x
+    private fun index(
+        x: Int,
+        y: Int,
+    ) = y * size + x
 
     /** True when the module at ([x], [y]) should be painted. */
-    fun isDark(x: Int, y: Int): Boolean =
-        if (x in 0 until size && y in 0 until size) dark[index(x, y)] else false
+    fun isDark(
+        x: Int,
+        y: Int,
+    ): Boolean = if (x in 0 until size && y in 0 until size) dark[index(x, y)] else false
 
-    fun typeAt(x: Int, y: Int): ModuleType =
-        if (x in 0 until size && y in 0 until size) types[index(x, y)] else ModuleType.QUIET_ZONE
+    fun typeAt(
+        x: Int,
+        y: Int,
+    ): ModuleType = if (x in 0 until size && y in 0 until size) types[index(x, y)] else ModuleType.QUIET_ZONE
 
     /** Iterates every dark module, quiet zone excluded by definition. */
     inline fun forEachDarkModule(action: (x: Int, y: Int, type: ModuleType) -> Unit) {
@@ -74,7 +81,10 @@ class ModuleMatrix internal constructor(
     }
 
     /** Debug rendering. Never used in the app itself. */
-    fun toAsciiArt(dark: String = "██", light: String = "  "): String =
+    fun toAsciiArt(
+        dark: String = "██",
+        light: String = "  ",
+    ): String =
         (0 until size).joinToString("\n") { y ->
             (0 until size).joinToString("") { x -> if (isDark(x, y)) dark else light }
         }

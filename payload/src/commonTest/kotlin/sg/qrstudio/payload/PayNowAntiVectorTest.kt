@@ -15,7 +15,6 @@ import kotlin.test.assertTrue
  * on a detection, the app has started producing codes that do not pay anyone.
  */
 class PayNowAntiVectorTest {
-
     @Test
     fun `anti-vector is structurally valid EMVCo with a correct CRC`() {
         assertTrue(EmvTlvParser.parse(GoldenVectors.ANTI_VECTOR) is ParseResult.Success)
@@ -39,10 +38,11 @@ class PayNowAntiVectorTest {
 
     @Test
     fun `this builder never emits tag 36`() {
-        val result = PayNowPayloadBuilder.build(
-            PayNowConfig(ProxyType.MOBILE, "91234567"),
-            today = LocalDates.TODAY,
-        )
+        val result =
+            PayNowPayloadBuilder.build(
+                PayNowConfig(ProxyType.MOBILE, "91234567"),
+                today = LocalDates.TODAY,
+            )
         val payload = (result as PayloadResult.Success).payload.raw
         val nodes = (EmvTlvParser.parse(payload) as ParseResult.Success).nodes
         assertTrue(nodes.none { it.tag == "36" }, "PayNow must be at tag 26, never 36")

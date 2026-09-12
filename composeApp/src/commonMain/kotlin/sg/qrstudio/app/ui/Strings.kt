@@ -63,7 +63,8 @@ object Strings {
             "You are responsible for verifying recipient details before use."
 
     fun proxyLabel(isMobile: Boolean) = if (isMobile) PROXY_LABEL_MOBILE else PROXY_LABEL_UEN
-    fun proxyPlaceholder(isMobile: Boolean) =
-        if (isMobile) PROXY_PLACEHOLDER_MOBILE else PROXY_PLACEHOLDER_UEN
+
+    fun proxyPlaceholder(isMobile: Boolean) = if (isMobile) PROXY_PLACEHOLDER_MOBILE else PROXY_PLACEHOLDER_UEN
+
     fun proxyExample(isMobile: Boolean) = if (isMobile) PROXY_EXAMPLE_MOBILE else PROXY_EXAMPLE_UEN
 }

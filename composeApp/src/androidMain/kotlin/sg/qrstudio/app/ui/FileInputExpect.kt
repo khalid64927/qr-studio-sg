@@ -16,25 +16,29 @@ actual fun WebFileInputButton(
     modifier: Modifier,
 ) {
     val coroutineScope = rememberCoroutineScope()
-    val filePickerLauncher = rememberFilePickerLauncher(type = PickerType.Image) { file ->
-        if (file != null) {
-            coroutineScope.launch {
-                try {
-                    val bytes = file.readBytes()
-                    onFileSelected(file.name, bytes)
-                } catch (e: Exception) {
-                    android.util.Log.e("FileInput", "Error reading file: ${e.message}")
+    val filePickerLauncher =
+        rememberFilePickerLauncher(type = PickerType.Image) { file ->
+            if (file != null) {
+                coroutineScope.launch {
+                    try {
+                        val bytes = file.readBytes()
+                        onFileSelected(file.name, bytes)
+                    } catch (e: Exception) {
+                        android.util.Log.e("FileInput", "Error reading file: ${e.message}")
+                    }
                 }
             }
         }
-    }
 
     SuggestionChip(
         onClick = { filePickerLauncher.launch() },
         label = {
             Text(
-                if (selectedFileName != null) "✓ Image selected: $selectedFileName"
-                else "📸 Choose image"
+                if (selectedFileName != null) {
+                    "✓ Image selected: $selectedFileName"
+                } else {
+                    "📸 Choose image"
+                },
             )
         },
         modifier = modifier,

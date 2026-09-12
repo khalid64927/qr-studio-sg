@@ -11,8 +11,6 @@ import kotlinx.coroutines.launch
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.todayIn
-import kotlin.time.Clock
-import kotlin.time.ExperimentalTime
 import sg.qrstudio.payload.PayNowConfig
 import sg.qrstudio.payload.PayNowPayload
 import sg.qrstudio.payload.PayNowPayloadBuilder
@@ -25,6 +23,8 @@ import sg.qrstudio.qr.ErrorCorrection
 import sg.qrstudio.qr.LogoConfig
 import sg.qrstudio.qr.ModuleMatrix
 import sg.qrstudio.qr.QrEncoder
+import kotlin.time.Clock
+import kotlin.time.ExperimentalTime
 
 /**
  * Everything the screen renders.
@@ -67,20 +67,47 @@ data class QrStudioUiState(
 
 /** Explicit intents. §9.1: state is mutated only through these, never in place. */
 sealed interface QrStudioIntent {
-    data class ProxyTypeChanged(val proxyType: ProxyType) : QrStudioIntent
-    data class ProxyValueChanged(val value: String) : QrStudioIntent
-    data class AmountChanged(val value: String) : QrStudioIntent
-    data class AmountEditableChanged(val editable: Boolean) : QrStudioIntent
-    data class ReferenceChanged(val value: String) : QrStudioIntent
-    data class MerchantNameChanged(val value: String) : QrStudioIntent
-    data class ExpiryDateChanged(val date: String) : QrStudioIntent
-    data class ErrorCorrectionChanged(val level: ErrorCorrection) : QrStudioIntent
+    data class ProxyTypeChanged(
+        val proxyType: ProxyType,
+    ) : QrStudioIntent
+
+    data class ProxyValueChanged(
+        val value: String,
+    ) : QrStudioIntent
+
+    data class AmountChanged(
+        val value: String,
+    ) : QrStudioIntent
+
+    data class AmountEditableChanged(
+        val editable: Boolean,
+    ) : QrStudioIntent
+
+    data class ReferenceChanged(
+        val value: String,
+    ) : QrStudioIntent
+
+    data class MerchantNameChanged(
+        val value: String,
+    ) : QrStudioIntent
+
+    data class ExpiryDateChanged(
+        val date: String,
+    ) : QrStudioIntent
+
+    data class ErrorCorrectionChanged(
+        val level: ErrorCorrection,
+    ) : QrStudioIntent
 
     /** FR-401/FR-407: colour and shape changes. The UI builds the new config with .copy(). */
-    data class AppearanceChanged(val appearance: AppearanceConfig) : QrStudioIntent
+    data class AppearanceChanged(
+        val appearance: AppearanceConfig,
+    ) : QrStudioIntent
 
     /** FR-301..FR-311: logo presence, size and shape. */
-    data class LogoChanged(val logo: LogoConfig) : QrStudioIntent
+    data class LogoChanged(
+        val logo: LogoConfig,
+    ) : QrStudioIntent
 
     /** FR-404: restores every visual default in one action. */
     data object AppearanceReset : QrStudioIntent
@@ -97,34 +124,35 @@ private fun systemToday(): LocalDate = Clock.System.todayIn(TimeZone.currentSyst
 class QrStudioViewModel(
     private val today: () -> LocalDate = ::systemToday,
 ) : ViewModel() {
-
     var uiState by mutableStateOf(QrStudioUiState())
         private set
 
     private var regenerateJob: Job? = null
 
     fun onIntent(intent: QrStudioIntent) {
-        uiState = when (intent) {
-            is QrStudioIntent.ProxyTypeChanged ->
-                // FR-104: switching proxy type clears the value. A mobile number is never
-                // a valid UEN, and silently carrying it across reads as a glitch.
-                uiState.copy(proxyType = intent.proxyType, proxyValue = "")
+        uiState =
+            when (intent) {
+                is QrStudioIntent.ProxyTypeChanged ->
+                    // FR-104: switching proxy type clears the value. A mobile number is never
+                    // a valid UEN, and silently carrying it across reads as a glitch.
+                    uiState.copy(proxyType = intent.proxyType, proxyValue = "")
 
-            is QrStudioIntent.ProxyValueChanged -> uiState.copy(proxyValue = intent.value)
-            is QrStudioIntent.AmountChanged -> uiState.copy(amount = intent.value)
-            is QrStudioIntent.AmountEditableChanged -> uiState.copy(amountEditable = intent.editable)
-            is QrStudioIntent.ReferenceChanged -> uiState.copy(reference = intent.value)
-            is QrStudioIntent.MerchantNameChanged -> uiState.copy(merchantName = intent.value)
-            is QrStudioIntent.ExpiryDateChanged -> uiState.copy(expiryDate = intent.date)
-            is QrStudioIntent.ErrorCorrectionChanged -> uiState.copy(errorCorrection = intent.level)
-            is QrStudioIntent.AppearanceChanged -> uiState.copy(appearance = intent.appearance)
-            is QrStudioIntent.LogoChanged -> applyLogoChange(intent.logo)
-            QrStudioIntent.AppearanceReset -> uiState.copy(
-                appearance = AppearanceConfig(),
-                logo = LogoConfig(),
-                errorCorrection = uiState.errorCorrectionBeforeLogo,
-            )
-        }
+                is QrStudioIntent.ProxyValueChanged -> uiState.copy(proxyValue = intent.value)
+                is QrStudioIntent.AmountChanged -> uiState.copy(amount = intent.value)
+                is QrStudioIntent.AmountEditableChanged -> uiState.copy(amountEditable = intent.editable)
+                is QrStudioIntent.ReferenceChanged -> uiState.copy(reference = intent.value)
+                is QrStudioIntent.MerchantNameChanged -> uiState.copy(merchantName = intent.value)
+                is QrStudioIntent.ExpiryDateChanged -> uiState.copy(expiryDate = intent.date)
+                is QrStudioIntent.ErrorCorrectionChanged -> uiState.copy(errorCorrection = intent.level)
+                is QrStudioIntent.AppearanceChanged -> uiState.copy(appearance = intent.appearance)
+                is QrStudioIntent.LogoChanged -> applyLogoChange(intent.logo)
+                QrStudioIntent.AppearanceReset ->
+                    uiState.copy(
+                        appearance = AppearanceConfig(),
+                        logo = LogoConfig(),
+                        errorCorrection = uiState.errorCorrectionBeforeLogo,
+                    )
+            }
         scheduleRegeneration(debounce = intent.isTextEdit)
     }
 
@@ -138,11 +166,12 @@ class QrStudioViewModel(
         val turningOn = newLogo.enabled && !current.logo.enabled
         val turningOff = !newLogo.enabled && current.logo.enabled
         return when {
-            turningOn -> current.copy(
-                logo = newLogo,
-                errorCorrectionBeforeLogo = current.errorCorrection,
-                errorCorrection = ErrorCorrection.WITH_LOGO,
-            )
+            turningOn ->
+                current.copy(
+                    logo = newLogo,
+                    errorCorrectionBeforeLogo = current.errorCorrection,
+                    errorCorrection = ErrorCorrection.WITH_LOGO,
+                )
 
             turningOff -> current.copy(logo = newLogo, errorCorrection = current.errorCorrectionBeforeLogo)
             else -> current.copy(logo = newLogo)
@@ -150,11 +179,12 @@ class QrStudioViewModel(
     }
 
     private val QrStudioIntent.isTextEdit: Boolean
-        get() = this is QrStudioIntent.ProxyValueChanged ||
-            this is QrStudioIntent.AmountChanged ||
-            this is QrStudioIntent.ReferenceChanged ||
-            this is QrStudioIntent.MerchantNameChanged ||
-            this is QrStudioIntent.ExpiryDateChanged
+        get() =
+            this is QrStudioIntent.ProxyValueChanged ||
+                this is QrStudioIntent.AmountChanged ||
+                this is QrStudioIntent.ReferenceChanged ||
+                this is QrStudioIntent.MerchantNameChanged ||
+                this is QrStudioIntent.ExpiryDateChanged
 
     /**
      * FR-502: text edits are debounced by 250 ms before the payload is rebuilt, because
@@ -163,22 +193,24 @@ class QrStudioViewModel(
      */
     private fun scheduleRegeneration(debounce: Boolean) {
         regenerateJob?.cancel()
-        regenerateJob = viewModelScope.launch {
-            if (debounce) delay(DEBOUNCE_MILLIS)
-            regenerate()
-        }
+        regenerateJob =
+            viewModelScope.launch {
+                if (debounce) delay(DEBOUNCE_MILLIS)
+                regenerate()
+            }
     }
 
     private fun regenerate() {
         val current = uiState
-        val config = PayNowConfig(
-            proxyType = current.proxyType,
-            proxyValue = current.proxyValue,
-            amount = current.amount.ifBlank { null },
-            amountEditable = current.amountEditable,
-            reference = current.reference.ifBlank { null },
-            merchantName = current.merchantName.ifBlank { null },
-        )
+        val config =
+            PayNowConfig(
+                proxyType = current.proxyType,
+                proxyValue = current.proxyValue,
+                amount = current.amount.ifBlank { null },
+                amountEditable = current.amountEditable,
+                reference = current.reference.ifBlank { null },
+                merchantName = current.merchantName.ifBlank { null },
+            )
 
         // An empty proxy is the starting state, not a mistake to shout about. Leave the
         // preview blank and stay quiet until the user has actually typed something.
@@ -188,21 +220,24 @@ class QrStudioViewModel(
         }
 
         // FR-154: the payload and its CRC are rebuilt from scratch on every change.
-        uiState = when (val result = PayNowPayloadBuilder.build(config, today())) {
-            is PayloadResult.Success -> current.copy(
-                payload = result.payload,
-                matrix = QrEncoder.encode(result.payload.raw, current.errorCorrection),
-                errors = emptyList(),
-                warnings = result.warnings,
-            )
+        uiState =
+            when (val result = PayNowPayloadBuilder.build(config, today())) {
+                is PayloadResult.Success ->
+                    current.copy(
+                        payload = result.payload,
+                        matrix = QrEncoder.encode(result.payload.raw, current.errorCorrection),
+                        errors = emptyList(),
+                        warnings = result.warnings,
+                    )
 
-            is PayloadResult.Invalid -> current.copy(
-                payload = null,
-                matrix = null,
-                errors = result.errors,
-                warnings = result.warnings,
-            )
-        }
+                is PayloadResult.Invalid ->
+                    current.copy(
+                        payload = null,
+                        matrix = null,
+                        errors = result.errors,
+                        warnings = result.warnings,
+                    )
+            }
     }
 
     private companion object {

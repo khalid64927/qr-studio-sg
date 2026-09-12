@@ -13,7 +13,6 @@ import kotlin.math.pow
  * the two colours will not binarise apart reliably.
  */
 object Contrast {
-
     /** Minimum ratio required to keep exporting. Below this, FR-402 blocks. */
     const val BLOCK_THRESHOLD = 3.0
 
@@ -21,7 +20,11 @@ object Contrast {
     const val WARN_THRESHOLD = 4.5
 
     /** Each channel 0f..1f. */
-    data class Rgb(val r: Float, val g: Float, val b: Float)
+    data class Rgb(
+        val r: Float,
+        val g: Float,
+        val b: Float,
+    )
 
     /** Relative luminance per WCAG 2.x, using the standard sRGB gamma-correction curve. */
     fun relativeLuminance(colour: Rgb): Double {
@@ -33,7 +36,10 @@ object Contrast {
     }
 
     /** Always >= 1.0, regardless of which colour is passed first. */
-    fun ratio(a: Rgb, b: Rgb): Double {
+    fun ratio(
+        a: Rgb,
+        b: Rgb,
+    ): Double {
         val la = relativeLuminance(a)
         val lb = relativeLuminance(b)
         val lighter = maxOf(la, lb)
@@ -43,9 +49,10 @@ object Contrast {
 
     enum class Verdict { BLOCKED, WARNING, OK }
 
-    fun verdict(ratio: Double): Verdict = when {
-        ratio < BLOCK_THRESHOLD -> Verdict.BLOCKED
-        ratio < WARN_THRESHOLD -> Verdict.WARNING
-        else -> Verdict.OK
-    }
+    fun verdict(ratio: Double): Verdict =
+        when {
+            ratio < BLOCK_THRESHOLD -> Verdict.BLOCKED
+            ratio < WARN_THRESHOLD -> Verdict.WARNING
+            else -> Verdict.OK
+        }
 }

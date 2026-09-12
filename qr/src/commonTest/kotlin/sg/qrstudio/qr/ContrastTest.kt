@@ -5,7 +5,6 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 class ContrastTest {
-
     private val black = Contrast.Rgb(0f, 0f, 0f)
     private val white = Contrast.Rgb(1f, 1f, 1f)
 
@@ -57,10 +56,11 @@ class ContrastTest {
 
     @Test
     fun `AC-21 an eye colour equal to the background is detected`() {
-        val config = AppearanceConfig(
-            background = white,
-            eyeStyle = EyeStyle(colour = white),
-        )
+        val config =
+            AppearanceConfig(
+                background = white,
+                eyeStyle = EyeStyle(colour = white),
+            )
         assertTrue(config.eyeMatchesBackground)
     }
 

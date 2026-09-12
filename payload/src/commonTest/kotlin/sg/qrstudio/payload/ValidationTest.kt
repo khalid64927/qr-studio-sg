@@ -7,17 +7,22 @@ import kotlin.test.assertTrue
 
 /** TC-01: validators, normalisation and amount formatting. */
 class ValidationTest {
-
-    private fun codes(config: PayNowConfig) =
-        Validation.validate(config, LocalDates.TODAY).issues.map { it.code }
+    private fun codes(config: PayNowConfig) = Validation.validate(config, LocalDates.TODAY).issues.map { it.code }
 
     // ---- FR-103 mobile ---------------------------------------------------------
 
     @Test
     fun `FR-103 a mobile number normalises from every reasonable input format`() {
         listOf(
-            "91234567", "9123 4567", "9123-4567", "+6591234567", "+65 9123 4567",
-            "6591234567", "65 9123 4567", "(+65) 9123-4567", " 9123.4567 ",
+            "91234567",
+            "9123 4567",
+            "9123-4567",
+            "+6591234567",
+            "+65 9123 4567",
+            "6591234567",
+            "65 9123 4567",
+            "(+65) 9123-4567",
+            " 9123.4567 ",
         ).forEach { input ->
             assertEquals("+6591234567", Validation.normaliseMobile(input), "Failed for '$input'")
         }
@@ -40,9 +45,9 @@ class ValidationTest {
     @Test
     fun `FR-102 all three UEN shapes are accepted without warnings`() {
         listOf(
-            "12345678A",   // business, nnnnnnnnX
-            "201403121W",  // local company, yyyynnnnnX
-            "T09LL0001B",  // other entity, TyyPQnnnnX
+            "12345678A", // business, nnnnnnnnX
+            "201403121W", // local company, yyyynnnnnX
+            "T09LL0001B", // other entity, TyyPQnnnnX
         ).forEach { uen ->
             assertEquals(emptyList(), codes(PayNowConfig(ProxyType.UEN, uen)), "Unexpected issue for $uen")
         }
@@ -72,9 +77,14 @@ class ValidationTest {
     @Test
     fun `FR-105 amounts format to exactly two decimal places`() {
         mapOf(
-            "500" to "500.00", "500.5" to "500.50", "500.50" to "500.50",
-            "0.01" to "0.01", "1,234.56" to "1234.56", "S$25" to "25.00",
-            "999999.99" to "999999.99", ".5" to "0.50",
+            "500" to "500.00",
+            "500.5" to "500.50",
+            "500.50" to "500.50",
+            "0.01" to "0.01",
+            "1,234.56" to "1234.56",
+            "S$25" to "25.00",
+            "999999.99" to "999999.99",
+            ".5" to "0.50",
         ).forEach { (input, expected) ->
             val cents = Validation.parseAmountToCents(input)
             assertEquals(expected, cents?.let { Validation.formatCents(it) }, "Failed for '$input'")
@@ -135,20 +145,22 @@ class ValidationTest {
 
     @Test
     fun `FR-114 an unusual reference warns but does not block`() {
-        val result = Validation.validate(
-            PayNowConfig(ProxyType.MOBILE, "91234567", reference = "INV/2026#1"),
-            LocalDates.TODAY,
-        )
+        val result =
+            Validation.validate(
+                PayNowConfig(ProxyType.MOBILE, "91234567", reference = "INV/2026#1"),
+                LocalDates.TODAY,
+            )
         assertTrue(result.isValid)
         assertTrue(result.warnings.any { it.code == IssueCode.REFERENCE_UNUSUAL_CHARACTERS })
     }
 
     @Test
     fun `FR-108 an expiry of today is accepted`() {
-        val result = Validation.validate(
-            PayNowConfig(ProxyType.MOBILE, "91234567", expiry = LocalDates.TODAY),
-            LocalDates.TODAY,
-        )
+        val result =
+            Validation.validate(
+                PayNowConfig(ProxyType.MOBILE, "91234567", expiry = LocalDates.TODAY),
+                LocalDates.TODAY,
+            )
         assertTrue(result.isValid)
     }
 }

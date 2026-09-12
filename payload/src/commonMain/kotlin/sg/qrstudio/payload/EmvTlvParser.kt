@@ -11,8 +11,14 @@ data class TlvNode(
 }
 
 sealed interface ParseResult {
-    data class Success(val nodes: List<TlvNode>) : ParseResult
-    data class Failure(val reason: String, val offset: Int) : ParseResult
+    data class Success(
+        val nodes: List<TlvNode>,
+    ) : ParseResult
+
+    data class Failure(
+        val reason: String,
+        val offset: Int,
+    ) : ParseResult
 }
 
 /**
@@ -23,7 +29,6 @@ sealed interface ParseResult {
  * separate from the builder so a shared bug cannot make a round-trip test pass falsely.
  */
 object EmvTlvParser {
-
     /** Templates whose values are themselves TLV sequences. */
     private val NESTED_TAGS = setOf("26", "27", "28", "29", "30", "31", "62", "64", "80", "81")
 
@@ -47,8 +52,9 @@ object EmvTlvParser {
             }
             val tag = bytes.decodeToString(offset, offset + 2)
             val lengthText = bytes.decodeToString(offset + 2, offset + 4)
-            val length = lengthText.toIntOrNull()
-                ?: return ParseResult.Failure("Length prefix '$lengthText' is not numeric", offset + 2)
+            val length =
+                lengthText.toIntOrNull()
+                    ?: return ParseResult.Failure("Length prefix '$lengthText' is not numeric", offset + 2)
             val valueStart = offset + 4
             val valueEnd = valueStart + length
             if (valueEnd > bytes.size) {
@@ -56,14 +62,15 @@ object EmvTlvParser {
             }
             val valueBytes = bytes.copyOfRange(valueStart, valueEnd)
             val value = valueBytes.decodeToString()
-            val children = if (tag in NESTED_TAGS) {
-                when (val nested = parse(valueBytes)) {
-                    is ParseResult.Success -> nested.nodes
-                    is ParseResult.Failure -> emptyList() // not every template nests; treat as opaque
+            val children =
+                if (tag in NESTED_TAGS) {
+                    when (val nested = parse(valueBytes)) {
+                        is ParseResult.Success -> nested.nodes
+                        is ParseResult.Failure -> emptyList() // not every template nests; treat as opaque
+                    }
+                } else {
+                    emptyList()
                 }
-            } else {
-                emptyList()
-            }
             nodes.add(TlvNode(tag, length, value, children))
             offset = valueEnd
         }
@@ -88,7 +95,6 @@ object EmvTlvParser {
  * PayNowAntiVectorTest holds that line permanently.
  */
 object PayNowDetector {
-
     const val PAYNOW_TEMPLATE_TAG = "26"
     const val PAYNOW_GUID = "SG.PAYNOW"
 
@@ -103,11 +109,12 @@ object PayNowDetector {
         val nodes = (EmvTlvParser.parse(payload) as? ParseResult.Success)?.nodes ?: return null
         val template = nodes.firstOrNull { it.tag == PAYNOW_TEMPLATE_TAG } ?: return null
         if (template.child("00")?.value != PAYNOW_GUID) return null
-        val proxyType = when (template.child("01")?.value) {
-            ProxyType.MOBILE.code -> ProxyType.MOBILE
-            ProxyType.UEN.code -> ProxyType.UEN
-            else -> return null
-        }
+        val proxyType =
+            when (template.child("01")?.value) {
+                ProxyType.MOBILE.code -> ProxyType.MOBILE
+                ProxyType.UEN.code -> ProxyType.UEN
+                else -> return null
+            }
         val proxyValue = template.child("02")?.value ?: return null
         return Detected(
             proxyType = proxyType,

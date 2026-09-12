@@ -16,7 +16,6 @@ import kotlin.test.assertTrue
  * when investigating.
  */
 class PayloadRoundTripTest {
-
     private val random = Random(seed = 20260909)
 
     private val referenceAlphabet = ('A'..'Z') + ('0'..'9') + listOf('-', '_')
@@ -26,17 +25,20 @@ class PayloadRoundTripTest {
     fun `every field round-trips through the parser`() {
         repeat(500) { iteration ->
             val proxyType = if (random.nextBoolean()) ProxyType.MOBILE else ProxyType.UEN
-            val proxyValue = when (proxyType) {
-                ProxyType.MOBILE -> buildString {
-                    append(if (random.nextBoolean()) '8' else '9')
-                    repeat(7) { append(random.nextInt(10)) }
-                }
+            val proxyValue =
+                when (proxyType) {
+                    ProxyType.MOBILE ->
+                        buildString {
+                            append(if (random.nextBoolean()) '8' else '9')
+                            repeat(7) { append(random.nextInt(10)) }
+                        }
 
-                ProxyType.UEN -> buildString {
-                    repeat(9) { append(random.nextInt(10)) }
-                    append(('A'..'Z').random(random))
+                    ProxyType.UEN ->
+                        buildString {
+                            repeat(9) { append(random.nextInt(10)) }
+                            append(('A'..'Z').random(random))
+                        }
                 }
-            }
 
             val hasAmount = random.nextBoolean()
             val cents = if (hasAmount) random.nextLong(1, 99_999_999) else null
@@ -44,27 +46,33 @@ class PayloadRoundTripTest {
             val editable = random.nextBoolean()
 
             val expiry = LocalDates.TODAY.plus(DatePeriod(days = random.nextInt(0, 3650)))
-            val reference = if (random.nextBoolean()) {
-                (1..random.nextInt(1, 26)).map { referenceAlphabet.random(random) }.joinToString("")
-            } else {
-                null
-            }
-            val merchantName = if (random.nextBoolean()) {
-                (1..random.nextInt(1, 26)).map { nameAlphabet.random(random) }.joinToString("").trim()
-                    .ifEmpty { null }
-            } else {
-                null
-            }
+            val reference =
+                if (random.nextBoolean()) {
+                    (1..random.nextInt(1, 26)).map { referenceAlphabet.random(random) }.joinToString("")
+                } else {
+                    null
+                }
+            val merchantName =
+                if (random.nextBoolean()) {
+                    (1..random.nextInt(1, 26))
+                        .map { nameAlphabet.random(random) }
+                        .joinToString("")
+                        .trim()
+                        .ifEmpty { null }
+                } else {
+                    null
+                }
 
-            val config = PayNowConfig(
-                proxyType = proxyType,
-                proxyValue = proxyValue,
-                amount = amount,
-                amountEditable = editable,
-                expiry = expiry,
-                reference = reference,
-                merchantName = merchantName,
-            )
+            val config =
+                PayNowConfig(
+                    proxyType = proxyType,
+                    proxyValue = proxyValue,
+                    amount = amount,
+                    amountEditable = editable,
+                    expiry = expiry,
+                    reference = reference,
+                    merchantName = merchantName,
+                )
 
             val result = PayNowPayloadBuilder.build(config, LocalDates.TODAY)
             assertTrue(result is PayloadResult.Success, "Iteration $iteration: $config produced $result")
@@ -77,6 +85,7 @@ class PayloadRoundTripTest {
             assertTrue(EmvTlvParser.verifyCrc(raw), "Iteration $iteration: bad CRC in $raw")
 
             val nodes = parsed.nodes
+
             fun node(tag: String) = nodes.firstOrNull { it.tag == tag }
 
             // Fixed fields.

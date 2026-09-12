@@ -2,11 +2,11 @@ package sg.qrstudio.app.ui
 
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.toAwtImage
-import java.io.File
-import javax.imageio.ImageIO
 import sg.qrstudio.qr.AppearanceConfig
 import sg.qrstudio.qr.LogoConfig
 import sg.qrstudio.qr.ModuleMatrix
+import java.io.File
+import javax.imageio.ImageIO
 
 actual fun exportQrAsPng(
     matrix: ModuleMatrix,
@@ -30,11 +30,12 @@ actual fun exportQrAsPng(
             val graphics = bufferedImage.createGraphics()
 
             // Fill background
-            val bgColor = java.awt.Color(
-                (appearance.background.r * 255).toInt(),
-                (appearance.background.g * 255).toInt(),
-                (appearance.background.b * 255).toInt(),
-            )
+            val bgColor =
+                java.awt.Color(
+                    (appearance.background.r * 255).toInt(),
+                    (appearance.background.g * 255).toInt(),
+                    (appearance.background.b * 255).toInt(),
+                )
             graphics.color = bgColor
             graphics.fillRect(0, 0, pixelSize, pixelSize)
 
@@ -70,11 +71,12 @@ actual fun exportQrAsPng(
 
             // Draw logo backing plate if enabled
             if (logo.enabled) {
-                val bgColor = java.awt.Color(
-                    (appearance.background.r * 255).toInt(),
-                    (appearance.background.g * 255).toInt(),
-                    (appearance.background.b * 255).toInt(),
-                )
+                val bgColor =
+                    java.awt.Color(
+                        (appearance.background.r * 255).toInt(),
+                        (appearance.background.g * 255).toInt(),
+                        (appearance.background.b * 255).toInt(),
+                    )
                 graphics.color = bgColor
                 when (logo.shape) {
                     sg.qrstudio.qr.LogoShape.CIRCLE -> {
@@ -128,7 +130,10 @@ actual fun exportQrAsSvg(
 
             val svg = StringBuilder()
             svg.append("""<?xml version="1.0" encoding="UTF-8"?>""").append("\n")
-            svg.append("""<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="$size" height="$size" viewBox="0 0 $size $size">""").append("\n")
+            svg
+                .append(
+                    """<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="$size" height="$size" viewBox="0 0 $size $size">""",
+                ).append("\n")
 
             // Background
             val bgHex = appearance.background.toHexColor()
@@ -168,14 +173,23 @@ actual fun exportQrAsSvg(
                 when (logo.shape) {
                     sg.qrstudio.qr.LogoShape.CIRCLE -> {
                         val radius = logoSize / 2
-                        svg.append("""  <circle cx="${logoLeft + radius}" cy="${logoTop + radius}" r="$radius" fill="$bgHex"/>""").append("\n")
+                        svg
+                            .append(
+                                """  <circle cx="${logoLeft + radius}" cy="${logoTop + radius}" r="$radius" fill="$bgHex"/>""",
+                            ).append("\n")
                     }
                     sg.qrstudio.qr.LogoShape.ROUNDED -> {
                         val radius = (logoSize * 0.2).toInt()
-                        svg.append("""  <rect x="$logoLeft" y="$logoTop" width="$logoSize" height="$logoSize" rx="$radius" fill="$bgHex"/>""").append("\n")
+                        svg
+                            .append(
+                                """  <rect x="$logoLeft" y="$logoTop" width="$logoSize" height="$logoSize" rx="$radius" fill="$bgHex"/>""",
+                            ).append("\n")
                     }
                     sg.qrstudio.qr.LogoShape.SQUARE -> {
-                        svg.append("""  <rect x="$logoLeft" y="$logoTop" width="$logoSize" height="$logoSize" fill="$bgHex"/>""").append("\n")
+                        svg
+                            .append(
+                                """  <rect x="$logoLeft" y="$logoTop" width="$logoSize" height="$logoSize" fill="$bgHex"/>""",
+                            ).append("\n")
                     }
                 }
 
@@ -205,8 +219,14 @@ private fun sg.qrstudio.qr.Contrast.Rgb.toHexColor(): String {
 }
 
 /** Mirrors QrCanvas.kt's drawModule: same three shapes, same corner/inset ratios. */
-private fun svgModule(x: Int, y: Int, size: Int, colourHex: String, shape: sg.qrstudio.qr.ModuleShape): String {
-    return when (shape) {
+private fun svgModule(
+    x: Int,
+    y: Int,
+    size: Int,
+    colourHex: String,
+    shape: sg.qrstudio.qr.ModuleShape,
+): String =
+    when (shape) {
         sg.qrstudio.qr.ModuleShape.SQUARE -> """    <rect x="$x" y="$y" width="$size" height="$size" fill="$colourHex"/>"""
         sg.qrstudio.qr.ModuleShape.ROUNDED -> {
             val r = (size * 0.3).toInt()
@@ -219,13 +239,18 @@ private fun svgModule(x: Int, y: Int, size: Int, colourHex: String, shape: sg.qr
             """    <circle cx="$cx" cy="$cy" r="$radius" fill="$colourHex"/>"""
         }
     }
-}
 
 private fun sg.qrstudio.qr.Contrast.Rgb.toAwtColor(): java.awt.Color =
     java.awt.Color((r * 255).toInt(), (g * 255).toInt(), (b * 255).toInt())
 
 /** Mirrors QrCanvas.kt's drawModule: same three shapes, same corner/inset ratios. */
-private fun drawModuleAwt(graphics: java.awt.Graphics2D, x: Int, y: Int, size: Int, shape: sg.qrstudio.qr.ModuleShape) {
+private fun drawModuleAwt(
+    graphics: java.awt.Graphics2D,
+    x: Int,
+    y: Int,
+    size: Int,
+    shape: sg.qrstudio.qr.ModuleShape,
+) {
     when (shape) {
         sg.qrstudio.qr.ModuleShape.SQUARE -> graphics.fillRect(x, y, size, size)
         sg.qrstudio.qr.ModuleShape.ROUNDED -> {
@@ -268,11 +293,12 @@ private fun drawLogoImageOnCanvas(
         val padding = 5
         val availableSize = size - (padding * 2)
         val imageAspectRatio = image.width.toFloat() / image.height
-        val (scaledWidth, scaledHeight) = if (imageAspectRatio > 1f) {
-            availableSize to (availableSize / imageAspectRatio).toInt()
-        } else {
-            (availableSize * imageAspectRatio).toInt() to availableSize
-        }
+        val (scaledWidth, scaledHeight) =
+            if (imageAspectRatio > 1f) {
+                availableSize to (availableSize / imageAspectRatio).toInt()
+            } else {
+                (availableSize * imageAspectRatio).toInt() to availableSize
+            }
 
         val imageLeft = left + padding + (availableSize - scaledWidth) / 2
         val imageTop = top + padding + (availableSize - scaledHeight) / 2
@@ -311,23 +337,30 @@ private fun drawLogoImageSvg(
         val padding = 5
         val availableSize = size - (padding * 2)
         val imageAspectRatio = image.width.toFloat() / image.height
-        val (scaledWidth, scaledHeight) = if (imageAspectRatio > 1f) {
-            availableSize to (availableSize / imageAspectRatio).toInt()
-        } else {
-            (availableSize * imageAspectRatio).toInt() to availableSize
-        }
+        val (scaledWidth, scaledHeight) =
+            if (imageAspectRatio > 1f) {
+                availableSize to (availableSize / imageAspectRatio).toInt()
+            } else {
+                (availableSize * imageAspectRatio).toInt() to availableSize
+            }
 
         val imageLeft = left + padding + (availableSize - scaledWidth) / 2
         val imageTop = top + padding + (availableSize - scaledHeight) / 2
 
         // Convert BufferedImage to base64 data URI
-        val base64Image = java.util.Base64.getEncoder().encodeToString(
-            java.io.ByteArrayOutputStream().apply {
-                javax.imageio.ImageIO.write(awtImage, "png", this)
-            }.toByteArray()
-        )
+        val base64Image =
+            java.util.Base64.getEncoder().encodeToString(
+                java.io
+                    .ByteArrayOutputStream()
+                    .apply {
+                        javax.imageio.ImageIO.write(awtImage, "png", this)
+                    }.toByteArray(),
+            )
 
-        svg.append("""  <image x="$imageLeft" y="$imageTop" width="$scaledWidth" height="$scaledHeight" xlink:href="data:image/png;base64,$base64Image"/>""").append("\n")
+        svg
+            .append(
+                """  <image x="$imageLeft" y="$imageTop" width="$scaledWidth" height="$scaledHeight" xlink:href="data:image/png;base64,$base64Image"/>""",
+            ).append("\n")
     } catch (e: Exception) {
         // Silently fail if image embedding fails
     }

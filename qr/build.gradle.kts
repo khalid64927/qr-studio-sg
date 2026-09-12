@@ -41,10 +41,25 @@ kotlin {
 
 android {
     namespace = "sg.qrstudio.qr"
-    compileSdk = libs.versions.android.compileSdk.get().toInt()
-    defaultConfig { minSdk = libs.versions.android.minSdk.get().toInt() }
+    compileSdk =
+        libs.versions.android.compileSdk
+            .get()
+            .toInt()
+    defaultConfig {
+        minSdk =
+            libs.versions.android.minSdk
+                .get()
+                .toInt()
+    }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+    }
+    lint {
+        abortOnError = true
+        warningsAsErrors = false
+        checkDependencies = true
+        htmlReport = true
+        xmlReport = true
     }
 }

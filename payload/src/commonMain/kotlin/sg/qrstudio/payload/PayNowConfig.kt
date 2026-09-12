@@ -12,7 +12,9 @@ import kotlinx.datetime.plus
  *
  * Proxy types 1 (NRIC) and 3 (VPA) exist in the scheme but are out of scope for v1.
  */
-enum class ProxyType(val code: String) {
+enum class ProxyType(
+    val code: String,
+) {
     MOBILE("0"),
     UEN("2"),
 }
@@ -45,7 +47,6 @@ data class PayNowConfig(
 }
 
 object PayNowDefaults {
-
     /** OQ-4 / FR-110: merchant name is never empty on the wire. */
     const val MERCHANT_NAME = "NA"
 
@@ -59,6 +60,5 @@ object PayNowDefaults {
     const val DEFAULT_EXPIRY_YEARS = 5
 
     /** FR-108: "No expiry" in the UI means today + 5 years on the wire. */
-    fun defaultExpiry(today: LocalDate): LocalDate =
-        today.plus(DatePeriod(years = DEFAULT_EXPIRY_YEARS))
+    fun defaultExpiry(today: LocalDate): LocalDate = today.plus(DatePeriod(years = DEFAULT_EXPIRY_YEARS))
 }

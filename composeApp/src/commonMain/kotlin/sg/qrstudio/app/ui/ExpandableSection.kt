@@ -47,10 +47,11 @@ fun ExpandableSection(
     Card(modifier = modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp)) {
         Column {
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable(onClick = onToggle)
-                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .clickable(onClick = onToggle)
+                        .padding(horizontal = 16.dp, vertical = 14.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {

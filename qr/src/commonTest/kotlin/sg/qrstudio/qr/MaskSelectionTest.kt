@@ -16,22 +16,27 @@ import kotlin.test.assertTrue
  * than merely asserting a mask index was recorded.
  */
 class MaskSelectionTest {
-
     private val paynowPayload =
         "00020101021126490009SG.PAYNOW010120210201403121W03011040820301231520400005303702" +
             "5802SG5913ACME Pte Ltd.6009Singapore6304B69E"
 
-    private fun penaltyFor(payload: String, level: ErrorCorrection, pattern: MaskPattern): Int {
-        val processor = QRCodeProcessor(
-            data = payload,
-            errorCorrectionLevel = level.toLibraryLevel(),
-            dataType = QRCodeDataType.DEFAULT,
-        )
-        val density = QRCodeProcessor.infoDensityForDataAndECL(
-            data = payload,
-            errorCorrectionLevel = level.toLibraryLevel(),
-            dataType = QRCodeDataType.DEFAULT,
-        )
+    private fun penaltyFor(
+        payload: String,
+        level: ErrorCorrection,
+        pattern: MaskPattern,
+    ): Int {
+        val processor =
+            QRCodeProcessor(
+                data = payload,
+                errorCorrectionLevel = level.toLibraryLevel(),
+                dataType = QRCodeDataType.DEFAULT,
+            )
+        val density =
+            QRCodeProcessor.infoDensityForDataAndECL(
+                data = payload,
+                errorCorrectionLevel = level.toLibraryLevel(),
+                dataType = QRCodeDataType.DEFAULT,
+            )
         val squares = processor.encode(type = density, maskPattern = pattern)
         return MaskPenalty.score(
             Array(squares.size) { row -> BooleanArray(squares[row].size) { col -> squares[row][col].dark } },
@@ -86,19 +91,22 @@ class MaskSelectionTest {
 
     @Test
     fun `every mask produces a symbol of the same size`() {
-        val sizes = MaskPattern.entries.map { pattern ->
-            val processor = QRCodeProcessor(
-                data = paynowPayload,
-                errorCorrectionLevel = ErrorCorrection.DEFAULT.toLibraryLevel(),
-                dataType = QRCodeDataType.DEFAULT,
-            )
-            val density = QRCodeProcessor.infoDensityForDataAndECL(
-                data = paynowPayload,
-                errorCorrectionLevel = ErrorCorrection.DEFAULT.toLibraryLevel(),
-                dataType = QRCodeDataType.DEFAULT,
-            )
-            processor.encode(type = density, maskPattern = pattern).size
-        }
+        val sizes =
+            MaskPattern.entries.map { pattern ->
+                val processor =
+                    QRCodeProcessor(
+                        data = paynowPayload,
+                        errorCorrectionLevel = ErrorCorrection.DEFAULT.toLibraryLevel(),
+                        dataType = QRCodeDataType.DEFAULT,
+                    )
+                val density =
+                    QRCodeProcessor.infoDensityForDataAndECL(
+                        data = paynowPayload,
+                        errorCorrectionLevel = ErrorCorrection.DEFAULT.toLibraryLevel(),
+                        dataType = QRCodeDataType.DEFAULT,
+                    )
+                processor.encode(type = density, maskPattern = pattern).size
+            }
         assertEquals(1, sizes.distinct().size, "Masking must not change the symbol version")
     }
 }

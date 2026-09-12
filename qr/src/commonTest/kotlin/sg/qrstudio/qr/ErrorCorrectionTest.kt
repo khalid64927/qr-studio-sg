@@ -13,7 +13,6 @@ import kotlin.test.assertEquals
  * with a large logo may stop scanning, and nothing else in the suite would notice.
  */
 class ErrorCorrectionTest {
-
     @Test
     fun `each level maps to the correct ISO 18004 format bits`() {
         assertEquals(1, ErrorCorrection.LOW.toLibraryLevel().value, "L must be format value 1")

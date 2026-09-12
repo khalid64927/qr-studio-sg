@@ -24,9 +24,7 @@ import kotlin.test.assertTrue
  * JVM test source set only. This library never ships in the app (§9.4).
  */
 class IndependentParserCrossCheckTest {
-
-    private fun decode(payload: String): MerchantPresentedMode =
-        DecoderMpm.decode(payload, MerchantPresentedMode::class.java)
+    private fun decode(payload: String): MerchantPresentedMode = DecoderMpm.decode(payload, MerchantPresentedMode::class.java)
 
     private fun paynowTemplate(decoded: MerchantPresentedMode): MerchantAccountInformationReservedAdditional {
         val template = decoded.merchantAccountInformation[PayNowDetector.PAYNOW_TEMPLATE_TAG]
@@ -36,18 +34,19 @@ class IndependentParserCrossCheckTest {
 
     @Test
     fun `the independent parser agrees on every field of a fully populated payload`() {
-        val result = PayNowPayloadBuilder.build(
-            PayNowConfig(
-                proxyType = ProxyType.MOBILE,
-                proxyValue = "9123 4567",
-                amount = "1234.5",
-                amountEditable = false,
-                expiry = LocalDates.FAR_FUTURE,
-                reference = "INV-2026-0042",
-                merchantName = "Acme Bakery",
-            ),
-            today = LocalDates.TODAY,
-        )
+        val result =
+            PayNowPayloadBuilder.build(
+                PayNowConfig(
+                    proxyType = ProxyType.MOBILE,
+                    proxyValue = "9123 4567",
+                    amount = "1234.5",
+                    amountEditable = false,
+                    expiry = LocalDates.FAR_FUTURE,
+                    reference = "INV-2026-0042",
+                    merchantName = "Acme Bakery",
+                ),
+                today = LocalDates.TODAY,
+            )
         val payload = (result as PayloadResult.Success).payload
         val decoded = decode(payload.raw)
 
@@ -78,32 +77,34 @@ class IndependentParserCrossCheckTest {
         val random = Random(seed = 20260909)
         repeat(200) { iteration ->
             val useMobile = random.nextBoolean()
-            val proxyValue = if (useMobile) {
-                buildString {
-                    append(if (random.nextBoolean()) '8' else '9')
-                    repeat(7) { append(random.nextInt(10)) }
+            val proxyValue =
+                if (useMobile) {
+                    buildString {
+                        append(if (random.nextBoolean()) '8' else '9')
+                        repeat(7) { append(random.nextInt(10)) }
+                    }
+                } else {
+                    buildString {
+                        repeat(9) { append(random.nextInt(10)) }
+                        append(('A'..'Z').random(random))
+                    }
                 }
-            } else {
-                buildString {
-                    repeat(9) { append(random.nextInt(10)) }
-                    append(('A'..'Z').random(random))
-                }
-            }
             val hasAmount = random.nextBoolean()
             val amount = if (hasAmount) Validation.formatCents(random.nextLong(1, 99_999_999)) else null
             val editable = random.nextBoolean()
             val reference = if (random.nextBoolean()) "REF${random.nextInt(1_000_000)}" else null
             val expiry = LocalDates.TODAY.plus(DatePeriod(days = random.nextInt(0, 3650)))
 
-            val config = PayNowConfig(
-                proxyType = if (useMobile) ProxyType.MOBILE else ProxyType.UEN,
-                proxyValue = proxyValue,
-                amount = amount,
-                amountEditable = editable,
-                expiry = expiry,
-                reference = reference,
-                merchantName = "Merchant $iteration",
-            )
+            val config =
+                PayNowConfig(
+                    proxyType = if (useMobile) ProxyType.MOBILE else ProxyType.UEN,
+                    proxyValue = proxyValue,
+                    amount = amount,
+                    amountEditable = editable,
+                    expiry = expiry,
+                    reference = reference,
+                    merchantName = "Merchant $iteration",
+                )
             val built = PayNowPayloadBuilder.build(config, LocalDates.TODAY)
             assertTrue(built is PayloadResult.Success, "Iteration $iteration: $built")
             val payload = built.payload

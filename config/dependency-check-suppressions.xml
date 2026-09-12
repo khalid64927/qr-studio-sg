@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    OWASP dependency-check suppressions. Empty by default — do not add an entry here to
+    silence a real finding. Only suppress a genuine false positive (e.g. the scanner
+    matching a CVE against an unrelated package with the same name), and when you do,
+    include the CVE/CPE, the date, and why it does not apply to this project.
+
+    https://jeremylong.github.io/DependencyCheck/general/suppression.html
+-->
+<suppressions xmlns="https://jeremylong.github.io/DependencyCheck/dependency-suppression.1.3.xsd">
+</suppressions>

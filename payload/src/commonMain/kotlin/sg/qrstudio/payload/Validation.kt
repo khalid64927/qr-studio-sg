@@ -59,30 +59,31 @@ data class ValidationResult(
 
 /** Centralised English copy. FR-704. */
 object PayloadStrings {
-    fun of(code: IssueCode): String = when (code) {
-        IssueCode.PROXY_EMPTY -> "Enter the mobile number or UEN that should receive the payment."
-        IssueCode.MOBILE_BAD_FORMAT -> "A Singapore mobile number has 8 digits, for example 9123 4567."
-        IssueCode.MOBILE_BAD_PREFIX -> "Singapore mobile numbers start with 8 or 9."
-        IssueCode.UEN_EMPTY -> "Enter your UEN."
-        IssueCode.UEN_BAD_LENGTH -> "A UEN is 9 or 10 characters long."
-        IssueCode.UEN_BAD_CHARACTERS -> "A UEN contains only letters and numbers."
-        IssueCode.UEN_UNRECOGNISED_PATTERN ->
-            "This does not look like a usual UEN format. Double-check it before you share the code."
-        IssueCode.AMOUNT_NOT_A_NUMBER -> "Enter the amount as a number, for example 25.50."
-        IssueCode.AMOUNT_TOO_SMALL -> "The smallest amount you can request is 0.01."
-        IssueCode.AMOUNT_TOO_LARGE -> "The largest amount you can request is 999999.99."
-        IssueCode.AMOUNT_TOO_MANY_DECIMALS -> "Amounts can have at most two decimal places."
-        IssueCode.EXPIRY_IN_PAST -> "The expiry date has already passed. Pick today or a later date."
-        IssueCode.MERCHANT_NAME_NON_ASCII ->
-            "The name can only use ordinary letters, numbers and punctuation. Accents, emoji and " +
-                "non-Latin characters are not supported by the payment code."
-        IssueCode.MERCHANT_NAME_TOO_LONG -> "The name will be shortened to 25 characters."
-        IssueCode.REFERENCE_NON_ASCII ->
-            "The reference can only use ordinary letters, numbers and punctuation."
-        IssueCode.REFERENCE_TOO_LONG -> "The reference will be shortened to 25 characters."
-        IssueCode.REFERENCE_UNUSUAL_CHARACTERS ->
-            "Banks handle references differently. Letters, numbers, hyphens and underscores are safest."
-    }
+    fun of(code: IssueCode): String =
+        when (code) {
+            IssueCode.PROXY_EMPTY -> "Enter the mobile number or UEN that should receive the payment."
+            IssueCode.MOBILE_BAD_FORMAT -> "A Singapore mobile number has 8 digits, for example 9123 4567."
+            IssueCode.MOBILE_BAD_PREFIX -> "Singapore mobile numbers start with 8 or 9."
+            IssueCode.UEN_EMPTY -> "Enter your UEN."
+            IssueCode.UEN_BAD_LENGTH -> "A UEN is 9 or 10 characters long."
+            IssueCode.UEN_BAD_CHARACTERS -> "A UEN contains only letters and numbers."
+            IssueCode.UEN_UNRECOGNISED_PATTERN ->
+                "This does not look like a usual UEN format. Double-check it before you share the code."
+            IssueCode.AMOUNT_NOT_A_NUMBER -> "Enter the amount as a number, for example 25.50."
+            IssueCode.AMOUNT_TOO_SMALL -> "The smallest amount you can request is 0.01."
+            IssueCode.AMOUNT_TOO_LARGE -> "The largest amount you can request is 999999.99."
+            IssueCode.AMOUNT_TOO_MANY_DECIMALS -> "Amounts can have at most two decimal places."
+            IssueCode.EXPIRY_IN_PAST -> "The expiry date has already passed. Pick today or a later date."
+            IssueCode.MERCHANT_NAME_NON_ASCII ->
+                "The name can only use ordinary letters, numbers and punctuation. Accents, emoji and " +
+                    "non-Latin characters are not supported by the payment code."
+            IssueCode.MERCHANT_NAME_TOO_LONG -> "The name will be shortened to 25 characters."
+            IssueCode.REFERENCE_NON_ASCII ->
+                "The reference can only use ordinary letters, numbers and punctuation."
+            IssueCode.REFERENCE_TOO_LONG -> "The reference will be shortened to 25 characters."
+            IssueCode.REFERENCE_UNUSUAL_CHARACTERS ->
+                "Banks handle references differently. Letters, numbers, hyphens and underscores are safest."
+        }
 }
 
 /**
@@ -92,12 +93,11 @@ object PayloadStrings {
  * "today" so expiry checks are deterministic under test.
  */
 object Validation {
-
-    private val UEN_BUSINESS = Regex("^\\d{8}[A-Z]$")               // nnnnnnnnX
-    private val UEN_LOCAL_COMPANY = Regex("^\\d{9}[A-Z]$")          // yyyynnnnnX
+    private val UEN_BUSINESS = Regex("^\\d{8}[A-Z]$") // nnnnnnnnX
+    private val UEN_LOCAL_COMPANY = Regex("^\\d{9}[A-Z]$") // yyyynnnnnX
     private val UEN_OTHER_ENTITY = Regex("^[TSR]\\d{2}[A-Z]{2}\\d{4}[A-Z]$") // TyyPQnnnnX
     private val ALPHANUMERIC = Regex("^[A-Z0-9]+$")
-    private val SAFE_REFERENCE = Regex("^[A-Za-z0-9_-]+$")          // FR-114
+    private val SAFE_REFERENCE = Regex("^[A-Za-z0-9_-]+$") // FR-114
 
     /** Printable ASCII, 0x20..0x7E. FR-111. */
     fun isPrintableAscii(text: String): Boolean = text.all { it.code in 0x20..0x7E }
@@ -129,7 +129,12 @@ object Validation {
      * Returns null when the input is not a number.
      */
     fun parseAmountToCents(raw: String): Long? {
-        val cleaned = raw.trim().removePrefix("S$").removePrefix("$").filter { it != ',' && it != ' ' }
+        val cleaned =
+            raw
+                .trim()
+                .removePrefix("S$")
+                .removePrefix("$")
+                .filter { it != ',' && it != ' ' }
         if (cleaned.isEmpty()) return null
         val parts = cleaned.split('.')
         if (parts.size > 2) return null
@@ -146,29 +151,39 @@ object Validation {
     /** FR-105: renders cents as the wire format, e.g. 50000 -> "500.00". */
     fun formatCents(cents: Long): String = "${cents / 100}.${(cents % 100).toString().padStart(2, '0')}"
 
-    fun validate(config: PayNowConfig, today: LocalDate): ValidationResult {
+    fun validate(
+        config: PayNowConfig,
+        today: LocalDate,
+    ): ValidationResult {
         val issues = mutableListOf<ValidationIssue>()
 
-        fun error(field: Field, code: IssueCode) =
-            issues.add(ValidationIssue(field, code, ValidationIssue.Severity.ERROR, PayloadStrings.of(code)))
+        fun error(
+            field: Field,
+            code: IssueCode,
+        ) = issues.add(ValidationIssue(field, code, ValidationIssue.Severity.ERROR, PayloadStrings.of(code)))
 
-        fun warn(field: Field, code: IssueCode) =
-            issues.add(ValidationIssue(field, code, ValidationIssue.Severity.WARNING, PayloadStrings.of(code)))
+        fun warn(
+            field: Field,
+            code: IssueCode,
+        ) = issues.add(ValidationIssue(field, code, ValidationIssue.Severity.WARNING, PayloadStrings.of(code)))
 
         // ---- Proxy -------------------------------------------------------------
         val rawProxy = config.proxyValue.trim() // FR-113
         when (config.proxyType) {
-            ProxyType.MOBILE -> when {
-                rawProxy.isEmpty() -> error(Field.PROXY, IssueCode.PROXY_EMPTY)
-                else -> {
-                    val digits = rawProxy.filter { it.isDigit() }
-                        .let { if (it.length == 10 && it.startsWith("65")) it.drop(2) else it }
-                    when {
-                        digits.length != 8 -> error(Field.PROXY, IssueCode.MOBILE_BAD_FORMAT)
-                        digits[0] != '8' && digits[0] != '9' -> error(Field.PROXY, IssueCode.MOBILE_BAD_PREFIX)
+            ProxyType.MOBILE ->
+                when {
+                    rawProxy.isEmpty() -> error(Field.PROXY, IssueCode.PROXY_EMPTY)
+                    else -> {
+                        val digits =
+                            rawProxy
+                                .filter { it.isDigit() }
+                                .let { if (it.length == 10 && it.startsWith("65")) it.drop(2) else it }
+                        when {
+                            digits.length != 8 -> error(Field.PROXY, IssueCode.MOBILE_BAD_FORMAT)
+                            digits[0] != '8' && digits[0] != '9' -> error(Field.PROXY, IssueCode.MOBILE_BAD_PREFIX)
+                        }
                     }
                 }
-            }
 
             ProxyType.UEN -> {
                 val uen = normaliseUen(rawProxy)

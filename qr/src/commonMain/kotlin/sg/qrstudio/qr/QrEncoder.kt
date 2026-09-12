@@ -22,7 +22,6 @@ import qrcode.raw.QRCodeProcessor
  *     required by FR-205 is added here and is not optional.
  */
 object QrEncoder {
-
     /**
      * Encodes [payload] at [errorCorrection].
      *
@@ -37,11 +36,12 @@ object QrEncoder {
     ): ModuleMatrix {
         require(payload.isNotEmpty()) { "Cannot encode an empty payload" }
 
-        val processor = QRCodeProcessor(
-            data = payload,
-            errorCorrectionLevel = errorCorrection.toLibraryLevel(),
-            dataType = QRCodeDataType.DEFAULT, // byte mode — FR-202
-        )
+        val processor =
+            QRCodeProcessor(
+                data = payload,
+                errorCorrectionLevel = errorCorrection.toLibraryLevel(),
+                dataType = QRCodeDataType.DEFAULT, // byte mode — FR-202
+            )
 
         // The symbol version must be computed for the data type we actually encode with.
         //
@@ -55,11 +55,12 @@ object QrEncoder {
         // not design: an all-uppercase payload (the deferred plain URL/text mode, or any
         // change to the fixed fields) would hit it. Passing the data type explicitly
         // keeps the two calculations in agreement.
-        val infoDensity = QRCodeProcessor.infoDensityForDataAndECL(
-            data = payload,
-            errorCorrectionLevel = errorCorrection.toLibraryLevel(),
-            dataType = QRCodeDataType.DEFAULT,
-        )
+        val infoDensity =
+            QRCodeProcessor.infoDensityForDataAndECL(
+                data = payload,
+                errorCorrectionLevel = errorCorrection.toLibraryLevel(),
+                dataType = QRCodeDataType.DEFAULT,
+            )
 
         // Try every mask and keep the best-scoring symbol (ISO/IEC 18004 §8.8.2).
         var best: Array<Array<QRCodeSquare>>? = null
@@ -125,10 +126,11 @@ object QrEncoder {
      * finder proper. Keeping them distinct matters because FR-407 lets the user colour
      * the eyes, and the separator must stay background-coloured or the eye stops reading.
      */
-    private fun QRCodeSquare.moduleType(): ModuleType = when (squareInfo.type) {
-        QRCodeSquareType.POSITION_PROBE -> if (dark) ModuleType.FINDER else ModuleType.FINDER_SEPARATOR
-        QRCodeSquareType.POSITION_ADJUST -> ModuleType.ALIGNMENT
-        QRCodeSquareType.TIMING_PATTERN -> ModuleType.TIMING
-        QRCodeSquareType.DEFAULT -> ModuleType.DATA
-    }
+    private fun QRCodeSquare.moduleType(): ModuleType =
+        when (squareInfo.type) {
+            QRCodeSquareType.POSITION_PROBE -> if (dark) ModuleType.FINDER else ModuleType.FINDER_SEPARATOR
+            QRCodeSquareType.POSITION_ADJUST -> ModuleType.ALIGNMENT
+            QRCodeSquareType.TIMING_PATTERN -> ModuleType.TIMING
+            QRCodeSquareType.DEFAULT -> ModuleType.DATA
+        }
 }

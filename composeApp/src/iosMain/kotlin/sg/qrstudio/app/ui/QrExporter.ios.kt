@@ -1,11 +1,11 @@
 package sg.qrstudio.app.ui
 
 import androidx.compose.ui.graphics.ImageBitmap
+import platform.Foundation.NSDocumentDirectory
 import platform.Foundation.NSFileManager
 import platform.Foundation.NSSearchPathForDirectoriesInDomains
-import platform.Foundation.NSDocumentDirectory
-import platform.Foundation.NSUserDomainMask
 import platform.Foundation.NSString
+import platform.Foundation.NSUserDomainMask
 import platform.Foundation.stringByAppendingPathComponent
 import sg.qrstudio.qr.AppearanceConfig
 import sg.qrstudio.qr.LogoConfig
@@ -21,11 +21,12 @@ actual fun exportQrAsPng(
 ) {
     try {
         // Get Documents directory
-        val paths = NSSearchPathForDirectoriesInDomains(
-            NSDocumentDirectory,
-            NSUserDomainMask,
-            true
-        )
+        val paths =
+            NSSearchPathForDirectoriesInDomains(
+                NSDocumentDirectory,
+                NSUserDomainMask,
+                true,
+            )
         val documentsPath = paths.firstOrNull() as? NSString ?: return
         val filePath = documentsPath.stringByAppendingPathComponent(fileName)
 
@@ -58,7 +59,7 @@ actual fun exportQrAsPng(
         NSFileManager.defaultManager().createFileAtPath(
             filePath,
             contents = svg.toString().encodeToByteArray().toNSData(),
-            attributes = null
+            attributes = null,
         )
         println("✓ QR code saved to: $filePath")
     } catch (e: Exception) {
@@ -74,11 +75,12 @@ actual fun exportQrAsSvg(
     fileName: String,
 ) {
     try {
-        val paths = NSSearchPathForDirectoriesInDomains(
-            NSDocumentDirectory,
-            NSUserDomainMask,
-            true
-        )
+        val paths =
+            NSSearchPathForDirectoriesInDomains(
+                NSDocumentDirectory,
+                NSUserDomainMask,
+                true,
+            )
         val documentsPath = paths.firstOrNull() as? NSString ?: return
         val filePath = documentsPath.stringByAppendingPathComponent(fileName)
 
@@ -87,7 +89,10 @@ actual fun exportQrAsSvg(
 
         val svg = StringBuilder()
         svg.append("""<?xml version="1.0" encoding="UTF-8"?>""").append("\n")
-        svg.append("""<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="$size" height="$size" viewBox="0 0 $size $size">""").append("\n")
+        svg
+            .append(
+                """<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="$size" height="$size" viewBox="0 0 $size $size">""",
+            ).append("\n")
 
         val bgHex = appearance.background.toHexColor()
         svg.append("""  <rect width="$size" height="$size" fill="$bgHex"/>""").append("\n")
@@ -126,7 +131,10 @@ actual fun exportQrAsSvg(
                 }
                 sg.qrstudio.qr.LogoShape.ROUNDED -> {
                     val radius = (logoSize * 0.2).toInt()
-                    svg.append("""  <rect x="$logoLeft" y="$logoTop" width="$logoSize" height="$logoSize" rx="$radius" fill="$bgHex"/>""").append("\n")
+                    svg
+                        .append(
+                            """  <rect x="$logoLeft" y="$logoTop" width="$logoSize" height="$logoSize" rx="$radius" fill="$bgHex"/>""",
+                        ).append("\n")
                 }
                 sg.qrstudio.qr.LogoShape.SQUARE -> {
                     svg.append("""  <rect x="$logoLeft" y="$logoTop" width="$logoSize" height="$logoSize" fill="$bgHex"/>""").append("\n")
@@ -139,7 +147,7 @@ actual fun exportQrAsSvg(
         NSFileManager.defaultManager().createFileAtPath(
             filePath,
             contents = svg.toString().encodeToByteArray().toNSData(),
-            attributes = null
+            attributes = null,
         )
         println("✓ QR code SVG saved to: $filePath")
     } catch (e: Exception) {
@@ -154,9 +162,8 @@ private fun sg.qrstudio.qr.Contrast.Rgb.toHexColor(): String {
     return "#$r$g$b"
 }
 
-private fun ByteArray.toNSData(): platform.Foundation.NSData {
-    return platform.Foundation.NSData(bytes = this.toUByteArray().toCValues().ptr, length = this.size.toULong())
-}
+private fun ByteArray.toNSData(): platform.Foundation.NSData =
+    platform.Foundation.NSData(bytes = this.toUByteArray().toCValues().ptr, length = this.size.toULong())
 
 private fun isWithinLogoAreaSvg(
     moduleX: Int,

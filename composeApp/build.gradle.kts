@@ -111,12 +111,21 @@ kotlin {
 
 android {
     namespace = "sg.qrstudio.app"
-    compileSdk = libs.versions.android.compileSdk.get().toInt()
+    compileSdk =
+        libs.versions.android.compileSdk
+            .get()
+            .toInt()
 
     defaultConfig {
         applicationId = "sg.qrstudio.app"
-        minSdk = libs.versions.android.minSdk.get().toInt()
-        targetSdk = libs.versions.android.targetSdk.get().toInt()
+        minSdk =
+            libs.versions.android.minSdk
+                .get()
+                .toInt()
+        targetSdk =
+            libs.versions.android.targetSdk
+                .get()
+                .toInt()
         versionCode = 1
         versionName = "0.1.0"
     }
@@ -125,6 +134,16 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
     buildFeatures { compose = true }
+    lint {
+        // A payment app fails its build on a real lint error rather than shipping with
+        // one merely reported; warnings are still visible in the HTML report without
+        // blocking CI.
+        abortOnError = true
+        warningsAsErrors = false
+        checkDependencies = true
+        htmlReport = true
+        xmlReport = true
+    }
 }
 
 compose.desktop {
