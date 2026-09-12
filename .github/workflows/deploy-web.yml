@@ -37,7 +37,7 @@ jobs:
         run: |
           mkdir -p dist
           cp -r composeApp/build/kotlin-webpack/wasmJs/productionExecutable/* dist/
-          cp composeApp/src/wasmJsMain/resources/index.html dist/
+          cp composeApp/src/webMain/resources/index.html dist/
           ls -la dist/
           echo "Files in dist:"
           find dist -type f
