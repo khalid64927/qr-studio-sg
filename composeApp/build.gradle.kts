@@ -63,6 +63,14 @@ kotlin {
         val webMain by creating { dependsOn(commonMain.get()) }
         wasmJsMain.get().dependsOn(webMain)
         val jsMain by getting { dependsOn(webMain) }
+
+        // Mirrors webMain: one test source set, run by both wasmJsTest and jsTest, so a
+        // fix verified here is verified for both web targets at once rather than by hand
+        // in a browser (browser automation cannot reliably drive Compose's canvas input,
+        // so this is the trustworthy way to check the web-only actuals).
+        val webTest by creating { dependsOn(commonTest.get()) }
+        wasmJsTest.get().dependsOn(webTest)
+        val jsTest by getting { dependsOn(webTest) }
         commonMain.dependencies {
             implementation(projects.payload)
             implementation(projects.qr)

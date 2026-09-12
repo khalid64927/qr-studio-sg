@@ -29,9 +29,19 @@ actual fun WebFileInputButton(
 }
 
 private fun triggerFileInput(onFileSelected: (name: String, bytes: ByteArray) -> Unit) {
+    // Appended to the DOM (hidden, not just created-and-discarded) rather than clicked
+    // while detached: some browser/security-policy combinations only honour a synthetic
+    // .click() on a file input that is actually part of the document, and a persistent,
+    // reachable element is also what makes this driveable by end-to-end tooling.
     val input = document.createElement("input") as org.w3c.dom.HTMLInputElement
     input.type = "file"
     input.accept = "image/*"
+    input.id = "qr-logo-file-input"
+    input.style.position = "fixed"
+    input.style.opacity = "0"
+    input.style.setProperty("pointer-events", "none")
+    input.style.width = "1px"
+    input.style.height = "1px"
 
     input.onchange = { event ->
         val files: FileList? = input.files
@@ -50,14 +60,21 @@ private fun triggerFileInput(onFileSelected: (name: String, bytes: ByteArray) ->
                         }
                     } catch (e: Exception) {
                         println("Error reading file: ${e.message}")
+                    } finally {
+                        input.remove()
                     }
                 }
                 reader.readAsDataURL(file)
+            } else {
+                input.remove()
             }
+        } else {
+            input.remove()
         }
         Unit
     }
 
+    document.body?.appendChild(input)
     input.click()
 }
 
