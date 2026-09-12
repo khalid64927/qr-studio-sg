@@ -6,6 +6,8 @@ import sg.qrstudio.qr.AppearanceConfig
 import sg.qrstudio.qr.LogoConfig
 import sg.qrstudio.qr.LogoShape
 import sg.qrstudio.qr.ModuleMatrix
+import sg.qrstudio.qr.ModuleShape
+import sg.qrstudio.qr.ModuleType
 
 actual fun exportQrAsPng(
     matrix: ModuleMatrix,
@@ -65,22 +67,23 @@ private fun buildQrSvg(
     val padding = 5
 
     val fgHex = appearance.foreground.toHexColor()
-    svg.append("""  <g fill="$fgHex">""").append("\n")
+    val eyeHex = appearance.eyeColour.toHexColor()
     for (row in 0 until matrix.size) {
         for (col in 0 until matrix.size) {
-            if (matrix.isDark(col, row)) {
-                val x = col * moduleSize
-                val y = row * moduleSize
+            if (!matrix.isDark(col, row)) continue
+            val x = col * moduleSize
+            val y = row * moduleSize
 
-                if (logo.enabled && isWithinLogoAreaSvg(x, y, moduleSize, logoLeft, logoTop, logoSize, padding)) {
-                    continue
-                }
-
-                svg.append("""    <rect x="$x" y="$y" width="$moduleSize" height="$moduleSize"/>""").append("\n")
+            if (logo.enabled && isWithinLogoAreaSvg(x, y, moduleSize, logoLeft, logoTop, logoSize, padding)) {
+                continue
             }
+
+            val isEye = matrix.typeAt(col, row) == ModuleType.FINDER
+            val colour = if (isEye) eyeHex else fgHex
+            val shape = if (isEye) appearance.eyeStyle.shape else appearance.moduleShape
+            svg.append(svgModule(x, y, moduleSize, colour, shape)).append("\n")
         }
     }
-    svg.append("""  </g>""").append("\n")
 
     if (logo.enabled) {
         when (logo.shape) {
@@ -105,6 +108,23 @@ private fun buildQrSvg(
 
     svg.append("""</svg>""")
     return svg.toString()
+}
+
+/** Mirrors QrCanvas.kt's drawModule: same three shapes, same corner/inset ratios. */
+private fun svgModule(x: Int, y: Int, size: Int, colourHex: String, shape: ModuleShape): String {
+    return when (shape) {
+        ModuleShape.SQUARE -> """    <rect x="$x" y="$y" width="$size" height="$size" fill="$colourHex"/>"""
+        ModuleShape.ROUNDED -> {
+            val r = (size * 0.3).toInt()
+            """    <rect x="$x" y="$y" width="$size" height="$size" rx="$r" ry="$r" fill="$colourHex"/>"""
+        }
+        ModuleShape.DOT -> {
+            val cx = x + size / 2.0
+            val cy = y + size / 2.0
+            val radius = size / 2.2
+            """    <circle cx="$cx" cy="$cy" r="$radius" fill="$colourHex"/>"""
+        }
+    }
 }
 
 private fun drawLogoImageSvg(

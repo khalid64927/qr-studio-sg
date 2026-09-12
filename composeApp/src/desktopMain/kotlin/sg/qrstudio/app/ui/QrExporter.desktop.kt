@@ -47,12 +47,8 @@ actual fun exportQrAsPng(
             val logoTop = (pixelSize - logoSize) / 2
             val padding = 5
 
-            val fgColor = java.awt.Color(
-                (appearance.foreground.r * 255).toInt(),
-                (appearance.foreground.g * 255).toInt(),
-                (appearance.foreground.b * 255).toInt(),
-            )
-            graphics.color = fgColor
+            val fgColor = appearance.foreground.toAwtColor()
+            val eyeColor = appearance.eyeColour.toAwtColor()
             for (row in 0 until matrix.size) {
                 for (col in 0 until matrix.size) {
                     if (matrix.isDark(col, row)) {
@@ -64,7 +60,10 @@ actual fun exportQrAsPng(
                             continue
                         }
 
-                        graphics.fillRect(x, y, modulePixels, modulePixels)
+                        val isEye = matrix.typeAt(col, row) == sg.qrstudio.qr.ModuleType.FINDER
+                        graphics.color = if (isEye) eyeColor else fgColor
+                        val shape = if (isEye) appearance.eyeStyle.shape else appearance.moduleShape
+                        drawModuleAwt(graphics, x, y, modulePixels, shape)
                     }
                 }
             }
@@ -143,7 +142,7 @@ actual fun exportQrAsSvg(
 
             // Modules
             val fgHex = appearance.foreground.toHexColor()
-            svg.append("""  <g fill="$fgHex">""").append("\n")
+            val eyeHex = appearance.eyeColour.toHexColor()
             for (row in 0 until matrix.size) {
                 for (col in 0 until matrix.size) {
                     if (matrix.isDark(col, row)) {
@@ -155,11 +154,13 @@ actual fun exportQrAsSvg(
                             continue
                         }
 
-                        svg.append("""    <rect x="$x" y="$y" width="$moduleSize" height="$moduleSize"/>""").append("\n")
+                        val isEye = matrix.typeAt(col, row) == sg.qrstudio.qr.ModuleType.FINDER
+                        val colour = if (isEye) eyeHex else fgHex
+                        val shape = if (isEye) appearance.eyeStyle.shape else appearance.moduleShape
+                        svg.append(svgModule(x, y, moduleSize, colour, shape)).append("\n")
                     }
                 }
             }
-            svg.append("""  </g>""").append("\n")
 
             // Draw logo backing plate if enabled
             if (logo.enabled) {
@@ -201,6 +202,42 @@ private fun sg.qrstudio.qr.Contrast.Rgb.toHexColor(): String {
     val g = (this.g * 255).toInt().toString(16).padStart(2, '0')
     val b = (this.b * 255).toInt().toString(16).padStart(2, '0')
     return "#$r$g$b"
+}
+
+/** Mirrors QrCanvas.kt's drawModule: same three shapes, same corner/inset ratios. */
+private fun svgModule(x: Int, y: Int, size: Int, colourHex: String, shape: sg.qrstudio.qr.ModuleShape): String {
+    return when (shape) {
+        sg.qrstudio.qr.ModuleShape.SQUARE -> """    <rect x="$x" y="$y" width="$size" height="$size" fill="$colourHex"/>"""
+        sg.qrstudio.qr.ModuleShape.ROUNDED -> {
+            val r = (size * 0.3).toInt()
+            """    <rect x="$x" y="$y" width="$size" height="$size" rx="$r" ry="$r" fill="$colourHex"/>"""
+        }
+        sg.qrstudio.qr.ModuleShape.DOT -> {
+            val cx = x + size / 2.0
+            val cy = y + size / 2.0
+            val radius = size / 2.2
+            """    <circle cx="$cx" cy="$cy" r="$radius" fill="$colourHex"/>"""
+        }
+    }
+}
+
+private fun sg.qrstudio.qr.Contrast.Rgb.toAwtColor(): java.awt.Color =
+    java.awt.Color((r * 255).toInt(), (g * 255).toInt(), (b * 255).toInt())
+
+/** Mirrors QrCanvas.kt's drawModule: same three shapes, same corner/inset ratios. */
+private fun drawModuleAwt(graphics: java.awt.Graphics2D, x: Int, y: Int, size: Int, shape: sg.qrstudio.qr.ModuleShape) {
+    when (shape) {
+        sg.qrstudio.qr.ModuleShape.SQUARE -> graphics.fillRect(x, y, size, size)
+        sg.qrstudio.qr.ModuleShape.ROUNDED -> {
+            val arc = (size * 0.6).toInt()
+            graphics.fillRoundRect(x, y, size, size, arc, arc)
+        }
+        sg.qrstudio.qr.ModuleShape.DOT -> {
+            val radius = (size / 1.1).toInt()
+            val offset = (size - radius) / 2
+            graphics.fillOval(x + offset, y + offset, radius, radius)
+        }
+    }
 }
 
 private fun isWithinLogoArea(
