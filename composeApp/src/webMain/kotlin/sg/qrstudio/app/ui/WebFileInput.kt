@@ -6,6 +6,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import kotlinx.browser.document
 import org.w3c.files.FileList
+import kotlin.io.encoding.Base64
+import kotlin.js.ExperimentalWasmJsInterop
+import kotlin.js.JsString
+import kotlin.js.unsafeCast
 
 @Composable
 actual fun WebFileInputButton(
@@ -28,6 +32,7 @@ actual fun WebFileInputButton(
     )
 }
 
+@OptIn(ExperimentalWasmJsInterop::class)
 private fun triggerFileInput(onFileSelected: (name: String, bytes: ByteArray) -> Unit) {
     // Appended to the DOM (hidden, not just created-and-discarded) rather than clicked
     // while detached: some browser/security-policy combinations only honour a synthetic
@@ -51,11 +56,23 @@ private fun triggerFileInput(onFileSelected: (name: String, bytes: ByteArray) ->
                 val reader = org.w3c.files.FileReader()
                 reader.onload = { _ ->
                     try {
-                        val result = reader.result as? String
+                        // reader.result is JsAny? on wasmJs (kotlinx-browser) and dynamic
+                        // on js(IR) (kotlin-dom-api-compat) — two different actual types
+                        // behind the same expect-ish org.w3c.files.FileReader API. A plain
+                        // `as? String` against a wasmJs JsAny is not a real cast (JsAny is
+                        // an opaque external reference, never a native Kotlin String) and
+                        // always evaluated to null, so this branch silently never ran and
+                        // onFileSelected was never called. unsafeCast<JsString>() + the
+                        // resulting toString() is the portable conversion: on wasmJs it
+                        // performs the actual JS-string-to-Kotlin-string bridge; on js(IR),
+                        // JsString is a typealias for String so it's a no-op identity.
+                        val result = reader.result?.unsafeCast<JsString>()?.toString()
                         if (result != null) {
-                            // Convert data URL to ByteArray
+                            // Convert data URL to ByteArray using the stdlib decoder — the
+                            // same one ImageDecoderWebTest already proves correct, rather
+                            // than a hand-rolled decoder that had never itself been tested.
                             val base64Data = result.substringAfter(",")
-                            val bytes = decodeBase64ToByteArray(base64Data)
+                            val bytes = Base64.decode(base64Data)
                             onFileSelected(file.name, bytes)
                         }
                     } catch (e: Exception) {
@@ -76,34 +93,4 @@ private fun triggerFileInput(onFileSelected: (name: String, bytes: ByteArray) ->
 
     document.body?.appendChild(input)
     input.click()
-}
-
-private fun decodeBase64ToByteArray(base64: String): ByteArray {
-    val chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/="
-    val result = mutableListOf<Byte>()
-    var i = 0
-
-    while (i < base64.length) {
-        val b1 = chars.indexOf(base64.getOrNull(i) ?: '=')
-        val b2 = chars.indexOf(base64.getOrNull(i + 1) ?: '=')
-        val b3 = chars.indexOf(base64.getOrNull(i + 2) ?: '=')
-        val b4 = chars.indexOf(base64.getOrNull(i + 3) ?: '=')
-
-        val byte1 = ((b1 and 0x3F) shl 2 or ((b2 and 0x30) shr 4)).toByte()
-        result.add(byte1)
-
-        if (b3 != 64) {
-            val byte2 = (((b2 and 0x0F) shl 4) or ((b3 and 0x3C) shr 2)).toByte()
-            result.add(byte2)
-        }
-
-        if (b4 != 64) {
-            val byte3 = (((b3 and 0x03) shl 6) or (b4 and 0x3F)).toByte()
-            result.add(byte3)
-        }
-
-        i += 4
-    }
-
-    return result.toByteArray()
 }
