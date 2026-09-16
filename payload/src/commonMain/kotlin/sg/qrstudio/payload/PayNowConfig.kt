@@ -10,12 +10,13 @@ import kotlinx.datetime.plus
  * D1 / FR-104: this is always an explicit user choice. The reference implementation
  * hardcodes UEN; that behaviour is deliberately not carried over.
  *
- * Proxy types 1 (NRIC) and 3 (VPA) exist in the scheme but are out of scope for v1.
+ * Proxy type 3 (VPA) exists in the scheme but is out of scope for v1.
  */
 enum class ProxyType(
     val code: String,
 ) {
     MOBILE("0"),
+    NRIC("1"),
     UEN("2"),
 }
 

@@ -100,22 +100,19 @@ fun QrStudioScreen(
                         onClick = { onIntent(QrStudioIntent.ProxyTypeChanged(type)) },
                         shape = SegmentedButtonDefaults.itemShape(index, ProxyType.entries.size),
                     ) {
-                        Text(
-                            if (type == ProxyType.MOBILE) Strings.PROXY_TYPE_MOBILE else Strings.PROXY_TYPE_UEN,
-                        )
+                        Text(Strings.proxyType(type))
                     }
                 }
             }
 
-            val isMobile = state.proxyType == ProxyType.MOBILE
             OutlinedTextField(
                 value = state.proxyValue,
                 onValueChange = { onIntent(QrStudioIntent.ProxyValueChanged(it)) },
-                label = { Text(Strings.proxyLabel(isMobile)) },
-                placeholder = { Text(Strings.proxyPlaceholder(isMobile)) },
+                label = { Text(Strings.proxyLabel(state.proxyType)) },
+                placeholder = { Text(Strings.proxyPlaceholder(state.proxyType)) },
                 // FR-153-adjacent: a small worked example under the field, independent of
                 // the placeholder, so it stays visible once the user starts typing.
-                supportingText = { Text(Strings.proxyExample(isMobile)) },
+                supportingText = { Text(Strings.proxyExample(state.proxyType)) },
                 isError = state.errors.any { it.field == Field.PROXY },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
@@ -687,7 +684,12 @@ private fun QrPreviewPanel(state: QrStudioUiState) {
 
 private fun paySummary(state: QrStudioUiState): String? {
     if (state.proxyValue.isBlank()) return null
-    val type = if (state.proxyType == ProxyType.MOBILE) "Mobile" else "UEN"
+    val type =
+        when (state.proxyType) {
+            ProxyType.MOBILE -> "Mobile"
+            ProxyType.NRIC -> "NRIC/FIN"
+            ProxyType.UEN -> "UEN"
+        }
     return "$type · ${state.proxyValue}"
 }
 

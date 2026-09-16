@@ -24,13 +24,20 @@ class PayloadRoundTripTest {
     @Test
     fun `every field round-trips through the parser`() {
         repeat(500) { iteration ->
-            val proxyType = if (random.nextBoolean()) ProxyType.MOBILE else ProxyType.UEN
+            val proxyType = ProxyType.entries.random(random)
             val proxyValue =
                 when (proxyType) {
                     ProxyType.MOBILE ->
                         buildString {
                             append(if (random.nextBoolean()) '8' else '9')
                             repeat(7) { append(random.nextInt(10)) }
+                        }
+
+                    ProxyType.NRIC ->
+                        buildString {
+                            append(if (random.nextBoolean()) 'S' else 'T')
+                            repeat(7) { append(random.nextInt(10)) }
+                            append(('A'..'Z').random(random))
                         }
 
                     ProxyType.UEN ->
