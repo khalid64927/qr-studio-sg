@@ -11,7 +11,7 @@ matrix, so the outputs below are directly comparable across platforms.
 | Platform | Skeleton | Consumes |
 |---|---|---|
 | iOS | `ios/` — a Swift Package executable target | the locally-built XCFrameworks |
-| Web | `web/` — a plain Node script | the locally-built npm package dirs |
+| Web | `web/` — a real Next.js app | the locally-built npm package dirs, via a Server Action |
 | Android | *(none — see below)* | `composeApp` already depends on `:payload`/`:qr` directly |
 
 **Android has no skeleton here.** `composeApp` (repo root) already builds against
@@ -75,37 +75,36 @@ Dark modules: 1362
 
 ## Web
 
+A real Next.js (App Router) app — not just a script. A form (Pay to / Payment, mirroring
+the Compose app's own sections) drives a debounced Server Action that calls straight into
+the published packages' `js` facades and returns a PayNow payload plus a QR module
+matrix, rendered live on a `<canvas>`. Validation errors and warnings come straight from
+`:payload`'s real `Validation` object — nothing about them is reimplemented in
+TypeScript. The design borrows Adyen's public visual language (Malachite green accent,
+Midnight navy ink, restrained card/border-based layout) as a stand-in fintech aesthetic —
+see `src/app/globals.css` for the palette and the comment on why it's not Adyen's actual
+design system or assets.
+
 ```bash
-# From the repo root — builds the npm package directories these demos link against
-./gradlew :payload:jsNodeProductionLibraryDistribution :qr:jsNodeProductionLibraryDistribution
-
 cd demo/web
-npm install
-npm run demo
+./setup-local-packages.sh   # builds :payload/:qr, packs and installs them locally
+npm run dev                 # http://localhost:3000
+# or: npm run build && npm run start
 ```
 
-`package.json` depends on the two packages via `file:` paths into
-`*/build/dist/js/productionLibrary`, not the registry — this is a local dev/test harness
-for code that isn't published yet, same reasoning as the iOS demo's path-based
-`binaryTarget`.
+`setup-local-packages.sh` runs the same `jsNodeProductionLibraryDistribution` Gradle
+tasks as the other demos, then `npm pack`s each output directory into a real `.tgz` and
+installs *that* — deliberately not a `file:`-directory dependency. npm symlinks a
+`file:`-directory dependency, and Node resolves `require()` inside a symlinked package
+relative to its *real* path, which is outside this app's `node_modules` entirely; a
+`file:`-*tarball* dependency, like a registry install, extracts a real copy instead, so
+none of that applies here. (The earlier CLI-only version of this demo used a plain `file:`
+directory + `node --preserve-symlinks` to work around exactly this — a real Next.js build
+has no equivalent flag, which is what prompted switching to tarballs.) Re-run the script
+after any change to `:payload` or `:qr`.
 
-Two things only apply to the `file:`-path local setup, not a real `npm install` from the
-registry:
-
-- `@js-joda/core` (kotlinx-datetime's own npm dependency) is listed directly in this
-  `package.json` too. Node resolves `require()` inside a `file:`-linked package relative
-  to that package's *real* location, not this demo's `node_modules` — so without this,
-  requiring it from inside `payload/build/dist/js/productionLibrary` fails to find a
-  copy. A registry install wouldn't hit this: npm installs a package's own declared
-  dependencies alongside it regardless.
-- `npm run demo` passes `node --preserve-symlinks` for the same reason — without it, the
-  same resolution behavior applies to the packages' own top-level modules.
-
-Captured output — identical to the iOS demo's, same inputs:
-
-```
-Built payload: 00020101021226500009SG.PAYNOW010100211+659123456703010040820310916520400005303702540525.505802SG5913Demo Merchant6009Singapore62160112INV-DEMO-00163048F64
-Normalised proxy: +65 9123 4567
-QR module matrix: 61x61, mask pattern 2
-Dark modules: 1362
-```
+Verified with a real browser session against `npm run build && npm run start`: typing a
+mobile number produces a live QR render, the raw EMVCo payload, and the normalised proxy
+display; switching to UEN and typing an invalid one surfaces the real validation error
+inline ("A Singapore mobile number has 8 digits…" / UEN-specific messages) with no
+console errors. Same payload string as the iOS demo for the same inputs.

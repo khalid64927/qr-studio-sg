@@ -1,0 +1,47 @@
+@import "tailwindcss";
+
+/*
+ * Palette inspired by Adyen's public design language — Malachite green (#0abf53) as the
+ * one accent color, Midnight navy (#00112c) for primary text/ink, everything else neutral
+ * gray on white. Not Adyen's actual design system or any of its proprietary assets —
+ * just the same restrained, high-contrast fintech aesthetic: light backgrounds, cards
+ * with thin borders instead of heavy shadows, one accent color used sparingly.
+ */
+:root {
+  --background: #f7f8f9;
+  --surface: #ffffff;
+  --foreground: #00112c;
+  --muted: #5b6572;
+  --border: #e2e5e9;
+  --accent: #0abf53;
+  --accent-ink: #ffffff;
+  --danger: #d92d20;
+  --danger-bg: #fef3f2;
+  --danger-border: #fecdca;
+  --warning: #b54708;
+  --warning-bg: #fffaeb;
+  --warning-border: #fedf89;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-border: var(--border);
+  --color-accent: var(--accent);
+  --color-accent-ink: var(--accent-ink);
+  --color-danger: var(--danger);
+  --color-danger-bg: var(--danger-bg);
+  --color-danger-border: var(--danger-border);
+  --color-warning: var(--warning);
+  --color-warning-bg: var(--warning-bg);
+  --color-warning-border: var(--warning-border);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+}

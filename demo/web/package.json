@@ -1,14 +1,29 @@
 {
-  "name": "qr-studio-sg-web-demo",
-  "private": true,
+  "name": "web",
   "version": "0.1.0",
-  "description": "Skeleton native-JS consumer of the published payload/qr npm packages — no Compose Multiplatform, no :ui or :composeApp.",
+  "private": true,
   "scripts": {
-    "demo": "node --preserve-symlinks index.js"
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint"
   },
   "dependencies": {
-    "@khalid64927/qr-studio-sg-payload": "file:../../payload/build/dist/js/productionLibrary",
-    "@khalid64927/qr-studio-sg-qr": "file:../../qr/build/dist/js/productionLibrary",
-    "@js-joda/core": "3.2.0"
+    "@js-joda/core": "^3.2.0",
+    "@khalid64927/qr-studio-sg-payload": "file:.local-packages/khalid64927-qr-studio-sg-payload-0.1.0.tgz",
+    "@khalid64927/qr-studio-sg-qr": "file:.local-packages/khalid64927-qr-studio-sg-qr-0.1.0.tgz",
+    "next": "16.3.5",
+    "react": "19.2.8",
+    "react-dom": "19.2.8"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "16.3.5",
+    "tailwindcss": "^4",
+    "typescript": "^5"
   }
 }
