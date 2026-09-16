@@ -25,6 +25,7 @@ type LogoShapeValue = "SQUARE" | "ROUNDED" | "CIRCLE";
 
 const PROXY_TYPES: { value: ProxyTypeInput; label: string; placeholder: string; example: string }[] = [
   { value: "MOBILE", label: "Mobile number", placeholder: "9123 4567", example: "e.g. 9123 4567" },
+  { value: "NRIC", label: "NRIC/FIN", placeholder: "S1234567D", example: "e.g. S1234567D" },
   { value: "UEN", label: "UEN", placeholder: "201403121W", example: "e.g. 201403121W" },
 ];
 
