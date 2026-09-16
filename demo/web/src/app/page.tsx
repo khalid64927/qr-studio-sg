@@ -1,15 +1,51 @@
 "use client";
 
 import { useEffect, useRef, useState, useTransition } from "react";
-import { generatePayNowQr, type GenerateQrOutput, type ProxyTypeInput } from "./actions";
-import { QrCanvas } from "./QrCanvas";
+import {
+  checkAppearance,
+  generatePayNowQr,
+  getLogoSizeBounds,
+  type AppearanceCheckOutput,
+  type GenerateQrOutput,
+  type LogoSizeBoundsOutput,
+  type ProxyTypeInput,
+  type RgbInput,
+} from "./actions";
+import { QrCanvas, type LogoGeometry, type LogoShapeValue, type ModuleShapeValue } from "./QrCanvas";
 
 const DEBOUNCE_MS = 300;
+const APPEARANCE_DEBOUNCE_MS = 150;
+const CANVAS_SIZE = 280;
 
 const PROXY_TYPES: { value: ProxyTypeInput; label: string; placeholder: string; example: string }[] = [
   { value: "MOBILE", label: "Mobile number", placeholder: "9123 4567", example: "e.g. 9123 4567" },
   { value: "UEN", label: "UEN", placeholder: "201403121W", example: "e.g. 201403121W" },
 ];
+
+const MODULE_SHAPES: { value: ModuleShapeValue; label: string }[] = [
+  { value: "SQUARE", label: "Square" },
+  { value: "ROUNDED", label: "Rounded" },
+  { value: "DOT", label: "Dot" },
+];
+
+const LOGO_SHAPES: { value: LogoShapeValue; label: string }[] = [
+  { value: "SQUARE", label: "Square" },
+  { value: "ROUNDED", label: "Rounded" },
+  { value: "CIRCLE", label: "Circle" },
+];
+
+const BLACK: RgbInput = { r: 0, g: 0, b: 0 };
+const WHITE: RgbInput = { r: 1, g: 1, b: 1 };
+
+function hexToRgb01(hex: string): RgbInput {
+  const n = parseInt(hex.slice(1), 16);
+  return { r: ((n >> 16) & 255) / 255, g: ((n >> 8) & 255) / 255, b: (n & 255) / 255 };
+}
+
+function rgb01ToHex({ r, g, b }: RgbInput): string {
+  const c = (v: number) => Math.round(v * 255).toString(16).padStart(2, "0");
+  return `#${c(r)}${c(g)}${c(b)}`;
+}
 
 export default function Home() {
   const [proxyType, setProxyType] = useState<ProxyTypeInput>("MOBILE");
@@ -19,12 +55,35 @@ export default function Home() {
   const [amountEditable, setAmountEditable] = useState(false);
   const [reference, setReference] = useState("INV-DEMO-001");
 
+  const [foreground, setForeground] = useState<RgbInput>(BLACK);
+  const [background, setBackground] = useState<RgbInput>(WHITE);
+  const [customEyeColor, setCustomEyeColor] = useState(false);
+  const [eyeColorValue, setEyeColorValue] = useState<RgbInput>(BLACK);
+  const [moduleShape, setModuleShape] = useState<ModuleShapeValue>("SQUARE");
+  const [eyeShape, setEyeShape] = useState<ModuleShapeValue>("SQUARE");
+  const eyeColor = customEyeColor ? eyeColorValue : null;
+
+  const [logoBounds, setLogoBounds] = useState<LogoSizeBoundsOutput | null>(null);
+  const [logoEnabled, setLogoEnabled] = useState(false);
+  const [logoSizeFraction, setLogoSizeFraction] = useState(0.2);
+  const [logoShape, setLogoShape] = useState<LogoShapeValue>("ROUNDED");
+  const [logoGeometry, setLogoGeometry] = useState<LogoGeometry | null>(null);
+
   const [result, setResult] = useState<GenerateQrOutput | null>(null);
+  const [appearanceCheck, setAppearanceCheck] = useState<AppearanceCheckOutput | null>(null);
   const [pending, startTransition] = useTransition();
   const requestId = useRef(0);
+  const appearanceRequestId = useRef(0);
 
   const activeProxy = PROXY_TYPES.find((p) => p.value === proxyType)!;
   const amountBlank = amount.trim() === "";
+
+  useEffect(() => {
+    getLogoSizeBounds().then((bounds) => {
+      setLogoBounds(bounds);
+      setLogoSizeFraction(bounds.defaultFraction);
+    });
+  }, []);
 
   useEffect(() => {
     // Blank proxy is the starting state, not a mistake — the JSX below checks
@@ -51,6 +110,19 @@ export default function Home() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [proxyType, proxyValue, amount, amountEditable, reference, merchantName]);
 
+  useEffect(() => {
+    const id = ++appearanceRequestId.current;
+    const timer = setTimeout(() => {
+      startTransition(async () => {
+        const next = await checkAppearance(foreground, background, eyeColor ?? foreground);
+        if (id === appearanceRequestId.current) setAppearanceCheck(next);
+      });
+    }, APPEARANCE_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  }, [foreground, background, eyeColor]);
+
+  const showQr = proxyValue.trim() !== "" && result?.matrix;
+
   return (
     <div className="mx-auto w-full max-w-5xl flex-1 px-6 py-12">
       <header className="mb-10 flex items-center gap-3">
@@ -65,8 +137,8 @@ export default function Home() {
       </header>
 
       <div className="grid gap-6 md:grid-cols-[1fr_320px] md:items-start">
-        <div className="space-y-6 rounded-2xl border border-border bg-surface p-8 shadow-sm">
-          <Section title="Pay to">
+        <div className="space-y-2 rounded-2xl border border-border bg-surface p-8 shadow-sm">
+          <Section title="Pay to" defaultOpen>
             <Field label="Recipient type">
               <SegmentedControl
                 options={PROXY_TYPES}
@@ -93,17 +165,15 @@ export default function Home() {
             </Field>
           </Section>
 
-          <Section title="Payment">
+          <Section title="Payment" defaultOpen>
             <Field label="Amount (SGD)">
               <TextInput value={amount} onChange={setAmount} placeholder="Leave blank for any amount" />
             </Field>
 
             <div className="flex items-center justify-between rounded-lg border border-border bg-background px-4 py-3">
-              <div>
-                <p className="text-sm font-medium">
-                  {amountBlank ? "The payer enters the amount" : "Let the payer change the amount"}
-                </p>
-              </div>
+              <p className="text-sm font-medium">
+                {amountBlank ? "The payer enters the amount" : "Let the payer change the amount"}
+              </p>
               <Toggle
                 checked={amountBlank || amountEditable}
                 disabled={amountBlank}
@@ -115,21 +185,95 @@ export default function Home() {
               <TextInput value={reference} onChange={setReference} placeholder="INV-2026-001" />
             </Field>
           </Section>
+
+          <Section title="Branding">
+            <div className="flex items-center justify-between rounded-lg border border-border bg-background px-4 py-3">
+              <p className="text-sm font-medium">Centre logo</p>
+              <Toggle checked={logoEnabled} onChange={setLogoEnabled} />
+            </div>
+
+            {logoEnabled && logoBounds && (
+              <>
+                <Field label={`Logo size — ${Math.round(logoSizeFraction * 100)}%`}>
+                  <input
+                    type="range"
+                    min={logoBounds.minFraction}
+                    max={logoBounds.maxFraction}
+                    step={0.01}
+                    value={logoSizeFraction}
+                    onChange={(e) => setLogoSizeFraction(parseFloat(e.target.value))}
+                    className="w-full accent-accent"
+                  />
+                  {logoSizeFraction > logoBounds.warningFraction && (
+                    <p className="mt-1.5 text-xs text-warning">
+                      Above {Math.round(logoBounds.warningFraction * 100)}% risks covering too much of the
+                      symbol for reliable scanning.
+                    </p>
+                  )}
+                </Field>
+
+                <Field label="Logo shape">
+                  <SegmentedControl options={LOGO_SHAPES} value={logoShape} onChange={setLogoShape} />
+                </Field>
+              </>
+            )}
+          </Section>
+
+          <Section title="Appearance">
+            <Field label="Foreground colour">
+              <ColorInput value={foreground} onChange={setForeground} />
+            </Field>
+            <Field label="Background colour">
+              <ColorInput value={background} onChange={setBackground} />
+            </Field>
+
+            <div className="flex items-center justify-between rounded-lg border border-border bg-background px-4 py-3">
+              <p className="text-sm font-medium">Custom eye colour</p>
+              <Toggle checked={customEyeColor} onChange={setCustomEyeColor} />
+            </div>
+            {customEyeColor && (
+              <Field label="Eye colour">
+                <ColorInput value={eyeColorValue} onChange={setEyeColorValue} />
+              </Field>
+            )}
+
+            <Field label="Module shape">
+              <SegmentedControl options={MODULE_SHAPES} value={moduleShape} onChange={setModuleShape} />
+            </Field>
+            <Field label="Eye style">
+              <SegmentedControl options={MODULE_SHAPES} value={eyeShape} onChange={setEyeShape} />
+            </Field>
+
+            {appearanceCheck && <ContrastBanner check={appearanceCheck} />}
+          </Section>
         </div>
 
         <div className="md:sticky md:top-8">
           <div className="rounded-2xl border border-border bg-surface p-6 shadow-sm">
-            <div className="flex aspect-square items-center justify-center rounded-xl border border-border bg-white p-4">
-              {proxyValue.trim() === "" ? (
+            <div
+              className="relative flex aspect-square items-center justify-center rounded-xl border border-border bg-white p-4"
+              style={{ width: CANVAS_SIZE + 32, height: CANVAS_SIZE + 32 }}
+            >
+              {!showQr ? (
                 <p className="px-6 text-center text-sm text-muted">
-                  Enter a {activeProxy.label.toLowerCase()} to see the QR code
+                  {proxyValue.trim() === ""
+                    ? `Enter a ${activeProxy.label.toLowerCase()} to see the QR code`
+                    : pending
+                      ? "Generating…"
+                      : "Fix the highlighted fields to see the QR code"}
                 </p>
-              ) : result?.matrix ? (
-                <QrCanvas matrix={result.matrix} />
               ) : (
-                <p className="px-6 text-center text-sm text-muted">
-                  {pending ? "Generating…" : "Fix the highlighted fields to see the QR code"}
-                </p>
+                <>
+                  <QrCanvas
+                    matrix={result!.matrix}
+                    appearance={{ foreground, background, eyeColor, moduleShape, eyeShape }}
+                    logo={{ enabled: logoEnabled, sizeFraction: logoSizeFraction, shape: logoShape }}
+                    onLogoGeometry={setLogoGeometry}
+                  />
+                  {logoEnabled && logoGeometry && (
+                    <LogoPlaceholderIcon geometry={logoGeometry} background={background} />
+                  )}
+                </>
               )}
             </div>
 
@@ -144,12 +288,8 @@ export default function Home() {
               </div>
             )}
 
-            {!!result?.errors.length && (
-              <Banner kind="danger" messages={result.errors} />
-            )}
-            {!!result?.warnings.length && (
-              <Banner kind="warning" messages={result.warnings} />
-            )}
+            {!!result?.errors.length && <Banner kind="danger" messages={result.errors} />}
+            {!!result?.warnings.length && <Banner kind="warning" messages={result.warnings} />}
           </div>
         </div>
       </div>
@@ -157,11 +297,33 @@ export default function Home() {
   );
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({
+  title,
+  defaultOpen = false,
+  children,
+}: {
+  title: string;
+  defaultOpen?: boolean;
+  children: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
   return (
-    <section className="space-y-4 border-t border-border pt-6 first:border-t-0 first:pt-0">
-      <h2 className="text-sm font-semibold tracking-wide text-muted uppercase">{title}</h2>
-      <div className="space-y-4">{children}</div>
+    <section className="border-t border-border py-4 first:border-t-0 first:pt-0">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="flex w-full items-center justify-between py-2 text-left"
+      >
+        <h2 className="text-sm font-semibold tracking-wide text-muted uppercase">{title}</h2>
+        <svg
+          viewBox="0 0 20 20"
+          fill="none"
+          className={`h-4 w-4 text-muted transition-transform ${open ? "rotate-180" : ""}`}
+        >
+          <path d="M5 7.5L10 12.5L15 7.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+        </svg>
+      </button>
+      {open && <div className="space-y-4 pt-2">{children}</div>}
     </section>
   );
 }
@@ -196,6 +358,21 @@ function TextInput({
         error ? "border-danger focus:border-danger" : "border-border focus:border-accent"
       }`}
     />
+  );
+}
+
+function ColorInput({ value, onChange }: { value: RgbInput; onChange: (value: RgbInput) => void }) {
+  const hex = rgb01ToHex(value);
+  return (
+    <div className="flex items-center gap-3 rounded-lg border border-border bg-surface px-3 py-2">
+      <input
+        type="color"
+        value={hex}
+        onChange={(e) => onChange(hexToRgb01(e.target.value))}
+        className="h-8 w-8 shrink-0 cursor-pointer rounded-md border border-border"
+      />
+      <span className="font-mono text-sm text-muted uppercase">{hex}</span>
+    </div>
   );
 }
 
@@ -267,6 +444,70 @@ function Banner({ kind, messages }: { kind: "danger" | "warning"; messages: stri
       {messages.map((message, i) => (
         <p key={i}>{message}</p>
       ))}
+    </div>
+  );
+}
+
+/** FR-402: BLOCKED must read as unambiguously blocking export, not just "a bit off". */
+function ContrastBanner({ check }: { check: AppearanceCheckOutput }) {
+  const verdictStyle: Record<AppearanceCheckOutput["contrastVerdict"], string> = {
+    OK: "bg-accent/10 border-accent/30 text-[#087f3f]",
+    WARNING: "bg-warning-bg border-warning-border text-warning",
+    BLOCKED: "bg-danger-bg border-danger-border text-danger",
+  };
+  const verdictLabel: Record<AppearanceCheckOutput["contrastVerdict"], string> = {
+    OK: "✓ Contrast OK",
+    WARNING: "⚠ Contrast warning",
+    BLOCKED: "✕ Contrast blocked",
+  };
+  return (
+    <div className={`space-y-1 rounded-lg border px-3.5 py-3 text-xs ${verdictStyle[check.contrastVerdict]}`}>
+      <p className="font-medium">
+        {verdictLabel[check.contrastVerdict]} — {check.contrastRatio.toFixed(2)}:1
+      </p>
+      {check.contrastVerdict === "BLOCKED" && (
+        <p>Below 3:1 — a scanner is unlikely to binarise these two colours apart reliably.</p>
+      )}
+      {check.contrastVerdict === "WARNING" && <p>Below 4.5:1 — scannable, but with less margin.</p>}
+      {check.eyeMatchesBackground && <p>The eye colour matches the background exactly — the eyes will vanish.</p>}
+      {check.backgroundDarkerThanForeground && (
+        <p>Background reads darker than foreground — check this is intentional.</p>
+      )}
+    </div>
+  );
+}
+
+function LogoPlaceholderIcon({
+  geometry,
+  background,
+}: {
+  geometry: LogoGeometry;
+  background: RgbInput;
+}) {
+  const toPct = (v: number) => `${(v / CANVAS_SIZE) * 100}%`;
+  const luminance = 0.2126 * background.r + 0.7152 * background.g + 0.0722 * background.b;
+  const iconColor = luminance > 0.5 ? "#5b6572" : "#ffffff";
+  return (
+    <div
+      className="pointer-events-none absolute flex items-center justify-center"
+      style={{
+        left: toPct(geometry.left),
+        top: toPct(geometry.top),
+        width: toPct(geometry.size),
+        height: toPct(geometry.size),
+      }}
+    >
+      <svg viewBox="0 0 24 24" fill="none" className="h-1/2 w-1/2" style={{ color: iconColor }}>
+        <rect x="3" y="4" width="18" height="16" rx="2" stroke="currentColor" strokeWidth="1.6" />
+        <circle cx="8.5" cy="9.5" r="1.5" stroke="currentColor" strokeWidth="1.6" />
+        <path
+          d="M21 16L15.5 10.5C15.1 10.1 14.5 10.1 14.1 10.5L6 18.5"
+          stroke="currentColor"
+          strokeWidth="1.6"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
     </div>
   );
 }

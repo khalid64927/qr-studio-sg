@@ -11,7 +11,7 @@ import { sg as paySg } from "@khalid64927/qr-studio-sg-payload";
 import { sg as qrSg } from "@khalid64927/qr-studio-sg-qr";
 
 const { buildPayNowQr } = paySg.qrstudio.payload.js;
-const { encodeQr } = qrSg.qrstudio.qr.js;
+const { encodeQr, checkContrast, logoSizeBounds } = qrSg.qrstudio.qr.js;
 
 export type ProxyTypeInput = "MOBILE" | "UEN";
 
@@ -28,6 +28,8 @@ export interface QrMatrixData {
   size: number;
   /** Row-major, quiet zone included — same layout as ModuleMatrix/QrModuleMatrixJs. */
   dark: boolean[];
+  /** True where a module belongs to a finder pattern — styled via "eye style", not moduleShape. */
+  finder: boolean[];
 }
 
 export interface GenerateQrOutput {
@@ -76,9 +78,12 @@ export async function generatePayNowQr(input: GenerateQrInput): Promise<Generate
 
   const matrix = encodeQr(result.raw, "M");
   const dark: boolean[] = new Array(matrix.size * matrix.size);
+  const finder: boolean[] = new Array(matrix.size * matrix.size);
   for (let y = 0; y < matrix.size; y++) {
     for (let x = 0; x < matrix.size; x++) {
-      dark[y * matrix.size + x] = matrix.isDark(x, y);
+      const i = y * matrix.size + x;
+      dark[i] = matrix.isDark(x, y);
+      finder[i] = matrix.isFinder(x, y);
     }
   }
 
@@ -89,6 +94,65 @@ export async function generatePayNowQr(input: GenerateQrInput): Promise<Generate
     amount: result.amount ?? null,
     errors: [],
     warnings: [...result.warnings],
-    matrix: { size: matrix.size, dark },
+    matrix: { size: matrix.size, dark, finder },
+  };
+}
+
+export interface RgbInput {
+  r: number;
+  g: number;
+  b: number;
+}
+
+export interface AppearanceCheckOutput {
+  contrastRatio: number;
+  contrastVerdict: "OK" | "WARNING" | "BLOCKED";
+  eyeContrastRatio: number;
+  eyeVerdict: "OK" | "WARNING" | "BLOCKED";
+  eyeMatchesBackground: boolean;
+  backgroundDarkerThanForeground: boolean;
+}
+
+/** FR-402/FR-407 — the same WCAG contrast floor the Compose app's export gate enforces. */
+export async function checkAppearance(
+  foreground: RgbInput,
+  background: RgbInput,
+  eye: RgbInput,
+): Promise<AppearanceCheckOutput> {
+  const result = checkContrast(
+    foreground.r,
+    foreground.g,
+    foreground.b,
+    background.r,
+    background.g,
+    background.b,
+    eye.r,
+    eye.g,
+    eye.b,
+  );
+  return {
+    contrastRatio: result.contrastRatio,
+    contrastVerdict: result.contrastVerdict as AppearanceCheckOutput["contrastVerdict"],
+    eyeContrastRatio: result.eyeContrastRatio,
+    eyeVerdict: result.eyeVerdict as AppearanceCheckOutput["eyeVerdict"],
+    eyeMatchesBackground: result.eyeMatchesBackground,
+    backgroundDarkerThanForeground: result.backgroundDarkerThanForeground,
+  };
+}
+
+export interface LogoSizeBoundsOutput {
+  minFraction: number;
+  maxFraction: number;
+  defaultFraction: number;
+  warningFraction: number;
+}
+
+export async function getLogoSizeBounds(): Promise<LogoSizeBoundsOutput> {
+  const bounds = logoSizeBounds();
+  return {
+    minFraction: bounds.minFraction,
+    maxFraction: bounds.maxFraction,
+    defaultFraction: bounds.defaultFraction,
+    warningFraction: bounds.warningFraction,
   };
 }

@@ -75,15 +75,36 @@ Dark modules: 1362
 
 ## Web
 
-A real Next.js (App Router) app — not just a script. A form (Pay to / Payment, mirroring
-the Compose app's own sections) drives a debounced Server Action that calls straight into
-the published packages' `js` facades and returns a PayNow payload plus a QR module
-matrix, rendered live on a `<canvas>`. Validation errors and warnings come straight from
-`:payload`'s real `Validation` object — nothing about them is reimplemented in
-TypeScript. The design borrows Adyen's public visual language (Malachite green accent,
-Midnight navy ink, restrained card/border-based layout) as a stand-in fintech aesthetic —
-see `src/app/globals.css` for the palette and the comment on why it's not Adyen's actual
-design system or assets.
+A real Next.js (App Router) app — not just a script. Four sections mirror the Compose
+app's own (Pay to / Payment / Branding / Appearance), each driving a debounced Server
+Action:
+
+- **Pay to / Payment** — proxy type, amount, reference, etc. — calls the real
+  `PayNowPayloadBuilder`/`Validation` through `buildPayNowQr`. Errors and warnings shown
+  are exactly what `:payload` returned; nothing is reimplemented in TypeScript.
+- **Branding** — a centre logo toggle, size slider (bounds fetched from
+  `logoSizeBounds()`, not hardcoded), and shape (square/rounded/circle), same mechanics
+  and same "no real image upload yet" placeholder as the Compose app itself.
+- **Appearance** — foreground/background/eye colour pickers and independent module/eye
+  shape (square/rounded/dot). The WCAG contrast floor (FR-402/FR-407: blocked below 3:1,
+  warned below 4.5:1) is checked by calling `checkContrast()` — the *same* `Contrast`
+  object the Compose export gate uses — not reimplemented luminance math in JS.
+
+`QrCanvas.tsx` ports `sg.qrstudio.app.ui.drawQrMatrix` (the Compose renderer) to Canvas
+2D directly — same whole-pixel-flooring rule, same logo-exclusion-area formula, same
+per-shape corner-radius/dot-radius constants — so a customization looks the same on both
+platforms, not just structurally equivalent. The design borrows Adyen's public visual
+language (Malachite green accent, Midnight navy ink, restrained card/border-based
+layout) as a stand-in fintech aesthetic — see `src/app/globals.css` for the palette and
+the comment on why it's not Adyen's actual design system or assets.
+
+Screenshots — captured live from `npm run build && npm run start`, same inputs as the
+iOS demo, [`../screenshots/`](../screenshots/):
+
+| | | |
+|---|---|---|
+| [![Navy, rounded modules, dot eyes, logo](../screenshots/paynow-qr-navy-rounded-dot-logo.jpg)](../screenshots/paynow-qr-navy-rounded-dot-logo.jpg) | [![Malachite green dots, navy eyes, circle logo](../screenshots/paynow-qr-green-dot-circle-logo.jpg)](../screenshots/paynow-qr-green-dot-circle-logo.jpg) | [![Contrast blocked warning](../screenshots/paynow-qr-contrast-blocked-warning.jpg)](../screenshots/paynow-qr-contrast-blocked-warning.jpg) |
+| Navy, rounded modules, dot eyes, logo | Malachite green dots, navy eyes, circle logo | Contrast blocked — FR-402 |
 
 ```bash
 cd demo/web
@@ -106,5 +127,16 @@ after any change to `:payload` or `:qr`.
 Verified with a real browser session against `npm run build && npm run start`: typing a
 mobile number produces a live QR render, the raw EMVCo payload, and the normalised proxy
 display; switching to UEN and typing an invalid one surfaces the real validation error
-inline ("A Singapore mobile number has 8 digits…" / UEN-specific messages) with no
-console errors. Same payload string as the iOS demo for the same inputs.
+inline ("A Singapore mobile number has 8 digits…" / UEN-specific messages); changing
+foreground/background/eye colour, module/eye shape and the logo (toggle, size, shape) all
+re-render live and correctly, including the contrast banner flipping to OK/WARNING/BLOCKED
+in real time as colours change. No console errors. Same payload string as the iOS demo
+for the same inputs.
+
+`:qr`'s `js` facade (`qr/src/jsMain/kotlin/…/js/QrEncoderJs.kt`) grew three additions for
+this: `QrModuleMatrixJs.isFinder(x, y)` (which modules are eyes, for `eyeStyle` to apply
+to), `checkContrast(...)` (wraps `Contrast.ratio`/`Contrast.verdict`), and
+`logoSizeBounds()` (wraps `LogoConfig`'s size-fraction constants). All three are plain
+functions/classes, not top-level `@JsExport val`s or an exported `object` — both of those
+looked correct in Kotlin but produced a broken or awkward-to-consume `.d.ts` in practice
+(see the comments in that file for what was actually tried and why it didn't work).
