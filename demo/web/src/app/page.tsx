@@ -5,17 +5,23 @@ import {
   checkAppearance,
   generatePayNowQr,
   getLogoSizeBounds,
+  renderQrSvg,
   type AppearanceCheckOutput,
+  type EmbeddedLogoImageInput,
   type GenerateQrOutput,
   type LogoSizeBoundsOutput,
   type ProxyTypeInput,
   type RgbInput,
 } from "./actions";
-import { QrCanvas, type LogoGeometry, type LogoShapeValue, type ModuleShapeValue } from "./QrCanvas";
+import { QrSvgView } from "./QrSvgView";
 
 const DEBOUNCE_MS = 300;
 const APPEARANCE_DEBOUNCE_MS = 150;
-const CANVAS_SIZE = 280;
+const SVG_DEBOUNCE_MS = 100;
+const PREVIEW_SIZE = 280;
+
+type ModuleShapeValue = "SQUARE" | "ROUNDED" | "DOT";
+type LogoShapeValue = "SQUARE" | "ROUNDED" | "CIRCLE";
 
 const PROXY_TYPES: { value: ProxyTypeInput; label: string; placeholder: string; example: string }[] = [
   { value: "MOBILE", label: "Mobile number", placeholder: "9123 4567", example: "e.g. 9123 4567" },
@@ -67,17 +73,17 @@ export default function Home() {
   const [logoEnabled, setLogoEnabled] = useState(false);
   const [logoSizeFraction, setLogoSizeFraction] = useState(0.2);
   const [logoShape, setLogoShape] = useState<LogoShapeValue>("ROUNDED");
-  const [logoGeometry, setLogoGeometry] = useState<LogoGeometry | null>(null);
-  const [logoImage, setLogoImage] = useState<HTMLImageElement | null>(null);
+  const [logoImage, setLogoImage] = useState<EmbeddedLogoImageInput | null>(null);
   const [logoFileName, setLogoFileName] = useState<string | null>(null);
   const [logoFileError, setLogoFileError] = useState<string | null>(null);
-  const logoObjectUrl = useRef<string | null>(null);
 
   const [result, setResult] = useState<GenerateQrOutput | null>(null);
+  const [svg, setSvg] = useState<string | null>(null);
   const [appearanceCheck, setAppearanceCheck] = useState<AppearanceCheckOutput | null>(null);
   const [pending, startTransition] = useTransition();
   const requestId = useRef(0);
   const appearanceRequestId = useRef(0);
+  const svgRequestId = useRef(0);
 
   const activeProxy = PROXY_TYPES.find((p) => p.value === proxyType)!;
   const amountBlank = amount.trim() === "";
@@ -125,13 +131,36 @@ export default function Home() {
     return () => clearTimeout(timer);
   }, [foreground, background, eyeColor]);
 
-  // Revoke the previous object URL whenever it's replaced or the component unmounts —
-  // otherwise each new upload leaks the last one for the tab's lifetime.
+  // Re-renders the SVG whenever the payload or any Branding/Appearance value changes —
+  // this is the only place the preview gets drawn, and it never draws anything itself;
+  // it just displays whatever renderQrSvg (i.e. :qr's QrSvgRenderer) returns.
   useEffect(() => {
-    return () => {
-      if (logoObjectUrl.current) URL.revokeObjectURL(logoObjectUrl.current);
-    };
-  }, []);
+    // A failed/empty result is handled directly by `showQr` below, derived from
+    // `result` rather than by resetting `svg` here — nothing to synchronize this effect
+    // needs to do for that case.
+    if (!result?.success || !result.raw) return;
+
+    const id = ++svgRequestId.current;
+    const timer = setTimeout(() => {
+      startTransition(async () => {
+        const next = await renderQrSvg({
+          payload: result.raw!,
+          foreground,
+          background,
+          eyeColor,
+          moduleShape,
+          eyeShape,
+          logoEnabled,
+          logoSizeFraction,
+          logoShape,
+          logoImage,
+        });
+        if (id === svgRequestId.current) setSvg(next);
+      });
+    }, SVG_DEBOUNCE_MS);
+
+    return () => clearTimeout(timer);
+  }, [result, foreground, background, eyeColor, moduleShape, eyeShape, logoEnabled, logoSizeFraction, logoShape, logoImage]);
 
   const MAX_LOGO_BYTES = 5 * 1024 * 1024;
 
@@ -147,30 +176,28 @@ export default function Home() {
       return;
     }
 
-    const url = URL.createObjectURL(file);
-    const image = new Image();
-    image.onload = () => {
-      if (logoObjectUrl.current) URL.revokeObjectURL(logoObjectUrl.current);
-      logoObjectUrl.current = url;
-      setLogoImage(image);
-      setLogoFileName(file.name);
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUri = reader.result as string;
+      const probe = new Image();
+      probe.onload = () => {
+        setLogoImage({ dataUri, width: probe.naturalWidth, height: probe.naturalHeight });
+        setLogoFileName(file.name);
+      };
+      probe.onerror = () => setLogoFileError("Couldn't read that image file.");
+      probe.src = dataUri;
     };
-    image.onerror = () => {
-      URL.revokeObjectURL(url);
-      setLogoFileError("Couldn't read that image file.");
-    };
-    image.src = url;
+    reader.onerror = () => setLogoFileError("Couldn't read that image file.");
+    reader.readAsDataURL(file);
   }
 
   function handleLogoImageRemoved() {
-    if (logoObjectUrl.current) URL.revokeObjectURL(logoObjectUrl.current);
-    logoObjectUrl.current = null;
     setLogoImage(null);
     setLogoFileName(null);
     setLogoFileError(null);
   }
 
-  const showQr = proxyValue.trim() !== "" && result?.matrix;
+  const showQr = proxyValue.trim() !== "" && result?.success === true && !!svg;
 
   return (
     <div className="mx-auto w-full max-w-5xl flex-1 px-6 py-12">
@@ -331,7 +358,7 @@ export default function Home() {
           <div className="rounded-2xl border border-border bg-surface p-6 shadow-sm">
             <div
               className="relative flex aspect-square items-center justify-center rounded-xl border border-border bg-white p-4"
-              style={{ width: CANVAS_SIZE + 32, height: CANVAS_SIZE + 32 }}
+              style={{ width: PREVIEW_SIZE + 32, height: PREVIEW_SIZE + 32 }}
             >
               {!showQr ? (
                 <p className="px-6 text-center text-sm text-muted">
@@ -342,18 +369,10 @@ export default function Home() {
                       : "Fix the highlighted fields to see the QR code"}
                 </p>
               ) : (
-                <>
-                  <QrCanvas
-                    matrix={result!.matrix}
-                    appearance={{ foreground, background, eyeColor, moduleShape, eyeShape }}
-                    logo={{ enabled: logoEnabled, sizeFraction: logoSizeFraction, shape: logoShape }}
-                    logoImage={logoImage}
-                    onLogoGeometry={setLogoGeometry}
-                  />
-                  {logoEnabled && logoGeometry && !logoImage && (
-                    <LogoPlaceholderIcon geometry={logoGeometry} background={background} />
-                  )}
-                </>
+                <div className="relative h-full w-full">
+                  <QrSvgView svg={svg} />
+                  {logoEnabled && !logoImage && <LogoPlaceholderIcon sizeFraction={logoSizeFraction} background={background} />}
+                </div>
               )}
             </div>
 
@@ -557,25 +576,26 @@ function ContrastBanner({ check }: { check: AppearanceCheckOutput }) {
   );
 }
 
+/**
+ * The logo backing plate itself comes from the SVG (:qr's QrSvgRenderer draws it); this
+ * is only the "no image yet" glyph on top, sized as a plain percentage of the preview —
+ * the plate is always centred at `logoSizeFraction` of the whole symbol, so no pixel
+ * geometry needs to come back from the renderer for this to line up.
+ */
 function LogoPlaceholderIcon({
-  geometry,
+  sizeFraction,
   background,
 }: {
-  geometry: LogoGeometry;
+  sizeFraction: number;
   background: RgbInput;
 }) {
-  const toPct = (v: number) => `${(v / CANVAS_SIZE) * 100}%`;
   const luminance = 0.2126 * background.r + 0.7152 * background.g + 0.0722 * background.b;
   const iconColor = luminance > 0.5 ? "#5b6572" : "#ffffff";
+  const pct = `${sizeFraction * 100}%`;
   return (
     <div
-      className="pointer-events-none absolute flex items-center justify-center"
-      style={{
-        left: toPct(geometry.left),
-        top: toPct(geometry.top),
-        width: toPct(geometry.size),
-        height: toPct(geometry.size),
-      }}
+      className="pointer-events-none absolute top-1/2 left-1/2 flex -translate-x-1/2 -translate-y-1/2 items-center justify-center"
+      style={{ width: pct, height: pct }}
     >
       <svg viewBox="0 0 24 24" fill="none" className="h-1/2 w-1/2" style={{ color: iconColor }}>
         <rect x="3" y="4" width="18" height="16" rx="2" stroke="currentColor" strokeWidth="1.6" />

@@ -108,16 +108,23 @@ running the build below.
 native-Swift app (`demo/ios/`) and a real Next.js app (`demo/web/`, styled in an
 Adyen-inspired fintech design) each build a PayNow payload and encode it into a QR module
 matrix, using nothing but the locally-built library artifacts above — no Compose
-Multiplatform, no `:ui`, no `:composeApp`. The web app goes further than the payload
-itself: it ports the Compose renderer's actual drawing algorithm to Canvas 2D, so
-Branding (logo) and Appearance (colours, module/eye shape, the FR-402 contrast gate) work
-there too — see [`demo/screenshots/`](demo/screenshots/) for a few customizations,
-captured live from a real browser session. Both demos were actually built and *run* (not
-just compiled) against real inputs, producing byte-for-byte identical payloads on both
-platforms; `demo/README.md` has the exact commands and what was verified. Android has no
-separate demo — `composeApp` already depends on `:payload`/`:qr` directly, which is a
-real, continuously-tested consumer already (see `demo/README.md` for why that's the right
-call rather than standing up a redundant one).
+Multiplatform, no `:ui`, no `:composeApp`. The web app's Branding (logo) and Appearance
+(colours, module/eye shape, the FR-402 contrast gate) render through `:qr`'s
+`QrSvgRenderer` — the *same* renderer every Compose platform's own SVG export now calls,
+after it turned out each of the four platform actuals carried its own ~80-line copy of
+the same algorithm (see `qr/src/commonMain/kotlin/sg/qrstudio/qr/QrSvgRenderer.kt`'s
+KDoc). Consolidating it surfaced and fixed two real bugs along the way: iOS's picked
+logo image was never actually decoded (`decodeImageBytes` was a `TODO` returning `null`
+unconditionally — Skia/skiko, already linked in for the Compose preview, needed no
+platform interop at all), and Android's SVG logo-image embedding was a silent no-op
+(`drawLogoImageSvg` was an empty function body). See
+[`demo/screenshots/`](demo/screenshots/) for a few customizations, captured live from a
+real browser session. Both demos were actually built and *run* (not just compiled)
+against real inputs, producing byte-for-byte identical payloads on both platforms;
+`demo/README.md` has the exact commands and what was verified. Android has no separate
+demo — `composeApp` already depends on `:payload`/`:qr` directly, which is a real,
+continuously-tested consumer already (see `demo/README.md` for why that's the right call
+rather than standing up a redundant one).
 
 ### Publishing a release
 

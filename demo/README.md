@@ -84,31 +84,47 @@ Action:
   are exactly what `:payload` returned; nothing is reimplemented in TypeScript.
 - **Branding** — a centre logo toggle, size slider (bounds fetched from
   `logoSizeBounds()`, not hardcoded), shape (square/rounded/circle), and a real image
-  upload (`<input type="file">` → `createObjectURL` → drawn via `Canvas.drawImage`,
-  aspect-ratio-preserving, same scaling math as Compose's `drawLogoImage`) — this one
-  goes *further* than the Compose app, which still only has the placeholder mark; see
-  the root README's roadmap. Browser-native decoding needs no Kotlin at all, so this
-  didn't touch `:payload`/`:qr`.
+  upload (`<input type="file">` → a data URI, read client-side) — this one goes
+  *further* than the Compose app, which still only has the placeholder mark; see the
+  root README's roadmap.
 - **Appearance** — foreground/background/eye colour pickers and independent module/eye
   shape (square/rounded/dot). The WCAG contrast floor (FR-402/FR-407: blocked below 3:1,
   warned below 4.5:1) is checked by calling `checkContrast()` — the *same* `Contrast`
   object the Compose export gate uses — not reimplemented luminance math in JS.
 
-`QrCanvas.tsx` ports `sg.qrstudio.app.ui.drawQrMatrix` (the Compose renderer) to Canvas
-2D directly — same whole-pixel-flooring rule, same logo-exclusion-area formula, same
-per-shape corner-radius/dot-radius constants — so a customization looks the same on both
-platforms, not just structurally equivalent. The design borrows Adyen's public visual
-language (Malachite green accent, Midnight navy ink, restrained card/border-based
-layout) as a stand-in fintech aesthetic — see `src/app/globals.css` for the palette and
-the comment on why it's not Adyen's actual design system or assets.
+This app draws nothing itself. `QrModuleMatrixJs.toSvg(...)` — a thin `js` facade
+wrapper around `QrSvgRenderer` in `:qr`'s commonMain — renders the whole symbol
+(module shapes, eye styling, logo plate, an embedded logo image) to SVG markup
+server-side, and `QrSvgView.tsx` just injects what comes back. `QrSvgRenderer` isn't
+web-only scaffolding: every Compose platform's SVG export (`composeApp/src/*Main/…/
+QrExporter.*.kt`) calls the exact same renderer, consolidated there after it turned out
+each of the four platform actuals carried its own ~80-line copy of the same algorithm,
+independently drifting apart in small ways (Android's dot module used a different
+radius divisor than the other three, for instance) — see that file's KDoc and the root
+README's Publishing section for the fuller story, including the two related bugs this
+consolidation surfaced and fixed (iOS's logo image was never actually decoded, and
+Android's SVG image embedding was a silent no-op). The web demo therefore gets
+byte-identical rendering to the Compose app for the same inputs, not just a
+structurally-similar reimplementation — there's exactly one rendering algorithm, in one
+place, and this app calls it like everything else does.
+
+The design borrows Adyen's public visual language (Malachite green accent, Midnight
+navy ink, restrained card/border-based layout) as a stand-in fintech aesthetic — see
+`src/app/globals.css` for the palette and the comment on why it's not Adyen's actual
+design system or assets.
 
 Screenshots — captured live from `npm run build && npm run start`, same inputs as the
 iOS demo, [`../screenshots/`](../screenshots/):
 
-| | | | |
-|---|---|---|---|
-| [![Navy, rounded modules, dot eyes, logo](../screenshots/paynow-qr-navy-rounded-dot-logo.jpg)](../screenshots/paynow-qr-navy-rounded-dot-logo.jpg) | [![Malachite green dots, navy eyes, circle logo](../screenshots/paynow-qr-green-dot-circle-logo.jpg)](../screenshots/paynow-qr-green-dot-circle-logo.jpg) | [![Contrast blocked warning](../screenshots/paynow-qr-contrast-blocked-warning.jpg)](../screenshots/paynow-qr-contrast-blocked-warning.jpg) | [![Uploaded logo image](../screenshots/paynow-qr-uploaded-logo.jpg)](../screenshots/paynow-qr-uploaded-logo.jpg) |
-| Navy, rounded modules, dot eyes, logo | Malachite green dots, navy eyes, circle logo | Contrast blocked — FR-402 | A real uploaded image, not the placeholder |
+| | | |
+|---|---|---|
+| [![Navy, rounded modules, dot eyes, logo](../screenshots/paynow-qr-navy-rounded-dot-logo.jpg)](../screenshots/paynow-qr-navy-rounded-dot-logo.jpg) | [![Malachite green dots, navy eyes, circle logo](../screenshots/paynow-qr-green-dot-circle-logo.jpg)](../screenshots/paynow-qr-green-dot-circle-logo.jpg) | [![Contrast blocked warning](../screenshots/paynow-qr-contrast-blocked-warning.jpg)](../screenshots/paynow-qr-contrast-blocked-warning.jpg) |
+| Navy, rounded modules, dot eyes, logo | Malachite green dots, navy eyes, circle logo | Contrast blocked — FR-402 |
+
+| | |
+|---|---|
+| [![Uploaded logo image](../screenshots/paynow-qr-uploaded-logo.jpg)](../screenshots/paynow-qr-uploaded-logo.jpg) | [![Rendered by :qr's shared QrSvgRenderer](../screenshots/paynow-qr-svg-renderer-verified.jpg)](../screenshots/paynow-qr-svg-renderer-verified.jpg) |
+| A real uploaded image, not the placeholder | Rendered entirely by `QrSvgRenderer` — same code path as every Compose platform's SVG export |
 
 ```bash
 cd demo/web
@@ -137,10 +153,11 @@ re-render live and correctly, including the contrast banner flipping to OK/WARNI
 in real time as colours change. No console errors. Same payload string as the iOS demo
 for the same inputs.
 
-`:qr`'s `js` facade (`qr/src/jsMain/kotlin/…/js/QrEncoderJs.kt`) grew three additions for
+`:qr`'s `js` facade (`qr/src/jsMain/kotlin/…/js/QrEncoderJs.kt`) grew four additions for
 this: `QrModuleMatrixJs.isFinder(x, y)` (which modules are eyes, for `eyeStyle` to apply
-to), `checkContrast(...)` (wraps `Contrast.ratio`/`Contrast.verdict`), and
-`logoSizeBounds()` (wraps `LogoConfig`'s size-fraction constants). All three are plain
-functions/classes, not top-level `@JsExport val`s or an exported `object` — both of those
-looked correct in Kotlin but produced a broken or awkward-to-consume `.d.ts` in practice
-(see the comments in that file for what was actually tried and why it didn't work).
+to) and `.toSvg(...)` (wraps `QrSvgRenderer`), `checkContrast(...)` (wraps
+`Contrast.ratio`/`Contrast.verdict`), and `logoSizeBounds()` (wraps `LogoConfig`'s
+size-fraction constants). All are plain functions/classes, not top-level `@JsExport
+val`s or an exported `object` — both of those looked correct in Kotlin but produced a
+broken or awkward-to-consume `.d.ts` in practice (see the comments in that file for what
+was actually tried and why it didn't work).

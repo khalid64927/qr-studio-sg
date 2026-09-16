@@ -124,86 +124,11 @@ actual fun exportQrAsSvg(
         val directory = fileDialog.directory
         val selectedFile = fileDialog.file
         if (directory != null && selectedFile != null) {
-            // Generate SVG as text
-            val moduleSize = 10 // pixels per module in SVG
-            val size = matrix.size * moduleSize
-
-            val svg = StringBuilder()
-            svg.append("""<?xml version="1.0" encoding="UTF-8"?>""").append("\n")
-            svg
-                .append(
-                    """<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="$size" height="$size" viewBox="0 0 $size $size">""",
-                ).append("\n")
-
-            // Background
-            val bgHex = appearance.background.toHexColor()
-            svg.append("""  <rect width="$size" height="$size" fill="$bgHex"/>""").append("\n")
-
-            // Compute logo area if enabled
-            val logoSize = if (logo.enabled) (size * logo.clampedSizeFraction()).toInt() else 0
-            val logoLeft = (size - logoSize) / 2
-            val logoTop = (size - logoSize) / 2
-            val padding = 5
-
-            // Modules
-            val fgHex = appearance.foreground.toHexColor()
-            val eyeHex = appearance.eyeColour.toHexColor()
-            for (row in 0 until matrix.size) {
-                for (col in 0 until matrix.size) {
-                    if (matrix.isDark(col, row)) {
-                        val x = col * moduleSize
-                        val y = row * moduleSize
-
-                        // Skip modules within logo area
-                        if (logo.enabled && isWithinLogoAreaSvg(x, y, moduleSize, logoLeft, logoTop, logoSize, padding)) {
-                            continue
-                        }
-
-                        val isEye = matrix.typeAt(col, row) == sg.qrstudio.qr.ModuleType.FINDER
-                        val colour = if (isEye) eyeHex else fgHex
-                        val shape = if (isEye) appearance.eyeStyle.shape else appearance.moduleShape
-                        svg.append(svgModule(x, y, moduleSize, colour, shape)).append("\n")
-                    }
-                }
-            }
-
-            // Draw logo backing plate if enabled
-            if (logo.enabled) {
-                val bgHex = appearance.background.toHexColor()
-                when (logo.shape) {
-                    sg.qrstudio.qr.LogoShape.CIRCLE -> {
-                        val radius = logoSize / 2
-                        svg
-                            .append(
-                                """  <circle cx="${logoLeft + radius}" cy="${logoTop + radius}" r="$radius" fill="$bgHex"/>""",
-                            ).append("\n")
-                    }
-                    sg.qrstudio.qr.LogoShape.ROUNDED -> {
-                        val radius = (logoSize * 0.2).toInt()
-                        svg
-                            .append(
-                                """  <rect x="$logoLeft" y="$logoTop" width="$logoSize" height="$logoSize" rx="$radius" fill="$bgHex"/>""",
-                            ).append("\n")
-                    }
-                    sg.qrstudio.qr.LogoShape.SQUARE -> {
-                        svg
-                            .append(
-                                """  <rect x="$logoLeft" y="$logoTop" width="$logoSize" height="$logoSize" fill="$bgHex"/>""",
-                            ).append("\n")
-                    }
-                }
-
-                // Draw the actual image if available
-                if (decodedImage != null && !logo.placeholder) {
-                    drawLogoImageSvg(svg, decodedImage, logoLeft, logoTop, logoSize, logo.shape)
-                }
-            }
-
-            svg.append("""</svg>""")
-
-            // Save SVG
+            val svg =
+                sg.qrstudio.qr.QrSvgRenderer
+                    .render(matrix, appearance, logo, embeddedImageFor(logo, decodedImage))
             val outputFile = File(directory, selectedFile)
-            outputFile.writeText(svg.toString())
+            outputFile.writeText(svg)
             println("✓ QR code SVG saved to: ${outputFile.absolutePath}")
         }
     } catch (e: Exception) {
@@ -211,34 +136,31 @@ actual fun exportQrAsSvg(
     }
 }
 
-private fun sg.qrstudio.qr.Contrast.Rgb.toHexColor(): String {
-    val r = (this.r * 255).toInt().toString(16).padStart(2, '0')
-    val g = (this.g * 255).toInt().toString(16).padStart(2, '0')
-    val b = (this.b * 255).toInt().toString(16).padStart(2, '0')
-    return "#$r$g$b"
-}
-
-/** Mirrors QrCanvas.kt's drawModule: same three shapes, same corner/inset ratios. */
-private fun svgModule(
-    x: Int,
-    y: Int,
-    size: Int,
-    colourHex: String,
-    shape: sg.qrstudio.qr.ModuleShape,
-): String =
-    when (shape) {
-        sg.qrstudio.qr.ModuleShape.SQUARE -> """    <rect x="$x" y="$y" width="$size" height="$size" fill="$colourHex"/>"""
-        sg.qrstudio.qr.ModuleShape.ROUNDED -> {
-            val r = (size * 0.3).toInt()
-            """    <rect x="$x" y="$y" width="$size" height="$size" rx="$r" ry="$r" fill="$colourHex"/>"""
-        }
-        sg.qrstudio.qr.ModuleShape.DOT -> {
-            val cx = x + size / 2.0
-            val cy = y + size / 2.0
-            val radius = size / 2.2
-            """    <circle cx="$cx" cy="$cy" r="$radius" fill="$colourHex"/>"""
-        }
+/**
+ * [decodedImage] is already Skia-backed (desktop's own decodeImageBytes uses
+ * org.jetbrains.skia.Image), so re-encoding it to a PNG data URI needs no extra decode.
+ */
+private fun embeddedImageFor(
+    logo: LogoConfig,
+    decodedImage: ImageBitmap?,
+): sg.qrstudio.qr.QrSvgRenderer.EmbeddedLogoImage? {
+    if (!logo.enabled || logo.placeholder || decodedImage == null) return null
+    return try {
+        val awtImage = decodedImage.toAwtImage()
+        val pngBytes =
+            java.io
+                .ByteArrayOutputStream()
+                .apply { javax.imageio.ImageIO.write(awtImage, "png", this) }
+                .toByteArray()
+        sg.qrstudio.qr.QrSvgRenderer.EmbeddedLogoImage(
+            dataUri = "data:image/png;base64,${java.util.Base64.getEncoder().encodeToString(pngBytes)}",
+            width = decodedImage.width,
+            height = decodedImage.height,
+        )
+    } catch (e: Exception) {
+        null
     }
+}
 
 private fun sg.qrstudio.qr.Contrast.Rgb.toAwtColor(): java.awt.Color =
     java.awt.Color((r * 255).toInt(), (g * 255).toInt(), (b * 255).toInt())
@@ -306,62 +228,5 @@ private fun drawLogoImageOnCanvas(
         graphics.drawImage(awtImage, imageLeft, imageTop, scaledWidth, scaledHeight, null)
     } catch (e: Exception) {
         // Silently fail if image rendering fails
-    }
-}
-
-private fun isWithinLogoAreaSvg(
-    moduleX: Int,
-    moduleY: Int,
-    moduleSize: Int,
-    logoLeft: Int,
-    logoTop: Int,
-    logoSize: Int,
-    padding: Int,
-): Boolean {
-    val cx = moduleX + moduleSize / 2
-    val cy = moduleY + moduleSize / 2
-    return cx in (logoLeft - padding)..(logoLeft + logoSize + padding) &&
-        cy in (logoTop - padding)..(logoTop + logoSize + padding)
-}
-
-private fun drawLogoImageSvg(
-    svg: StringBuilder,
-    image: androidx.compose.ui.graphics.ImageBitmap,
-    left: Int,
-    top: Int,
-    size: Int,
-    shape: sg.qrstudio.qr.LogoShape,
-) {
-    try {
-        val awtImage = image.toAwtImage()
-        val padding = 5
-        val availableSize = size - (padding * 2)
-        val imageAspectRatio = image.width.toFloat() / image.height
-        val (scaledWidth, scaledHeight) =
-            if (imageAspectRatio > 1f) {
-                availableSize to (availableSize / imageAspectRatio).toInt()
-            } else {
-                (availableSize * imageAspectRatio).toInt() to availableSize
-            }
-
-        val imageLeft = left + padding + (availableSize - scaledWidth) / 2
-        val imageTop = top + padding + (availableSize - scaledHeight) / 2
-
-        // Convert BufferedImage to base64 data URI
-        val base64Image =
-            java.util.Base64.getEncoder().encodeToString(
-                java.io
-                    .ByteArrayOutputStream()
-                    .apply {
-                        javax.imageio.ImageIO.write(awtImage, "png", this)
-                    }.toByteArray(),
-            )
-
-        svg
-            .append(
-                """  <image x="$imageLeft" y="$imageTop" width="$scaledWidth" height="$scaledHeight" xlink:href="data:image/png;base64,$base64Image"/>""",
-            ).append("\n")
-    } catch (e: Exception) {
-        // Silently fail if image embedding fails
     }
 }

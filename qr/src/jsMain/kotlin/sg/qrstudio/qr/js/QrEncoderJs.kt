@@ -1,10 +1,15 @@
 package sg.qrstudio.qr.js
 
+import sg.qrstudio.qr.AppearanceConfig
 import sg.qrstudio.qr.Contrast
 import sg.qrstudio.qr.ErrorCorrection
+import sg.qrstudio.qr.EyeStyle
 import sg.qrstudio.qr.LogoConfig
+import sg.qrstudio.qr.LogoShape
 import sg.qrstudio.qr.ModuleMatrix
+import sg.qrstudio.qr.ModuleShape
 import sg.qrstudio.qr.QrEncoder
+import sg.qrstudio.qr.QrSvgRenderer
 import kotlin.js.ExperimentalJsExport
 import kotlin.js.JsExport
 
@@ -48,6 +53,71 @@ class QrModuleMatrixJs internal constructor(
         x: Int,
         y: Int,
     ): Boolean = matrix.typeAt(x, y) == sg.qrstudio.qr.ModuleType.FINDER
+
+    /**
+     * Renders this matrix to SVG markup using [QrSvgRenderer] — the exact same renderer
+     * every Compose platform's SVG export calls. A native web UI gets pixel-identical
+     * output to the Compose app for the same inputs, rather than a hand-ported
+     * reimplementation of the drawing algorithm in TypeScript/Canvas.
+     *
+     * @param moduleShape / [eyeShape] one of `"SQUARE"`, `"ROUNDED"`, `"DOT"`.
+     * @param eyeR / [eyeG] / [eyeB] the eye colour, or `null` to use the foreground colour
+     *   (matching [EyeStyle.colour]'s own null-means-foreground default). All three must
+     *   be non-null together, or none.
+     * @param logoShape one of `"SQUARE"`, `"ROUNDED"`, `"CIRCLE"`.
+     * @param embeddedLogoImageDataUri a ready-made `data:image/...;base64,...` URI for a
+     *   picked logo image — decoding raw bytes is a browser/DOM concern, not something
+     *   this Kotlin/JS module does. Leave null to draw just the backing plate.
+     */
+    fun toSvg(
+        foregroundR: Double,
+        foregroundG: Double,
+        foregroundB: Double,
+        backgroundR: Double,
+        backgroundG: Double,
+        backgroundB: Double,
+        eyeR: Double? = null,
+        eyeG: Double? = null,
+        eyeB: Double? = null,
+        moduleShape: String = "SQUARE",
+        eyeShape: String = "SQUARE",
+        logoEnabled: Boolean = false,
+        logoSizeFraction: Double = LogoConfig.DEFAULT_SIZE_FRACTION.toDouble(),
+        logoShape: String = "ROUNDED",
+        embeddedLogoImageDataUri: String? = null,
+        embeddedLogoImageWidth: Int = 0,
+        embeddedLogoImageHeight: Int = 0,
+    ): String {
+        val appearance =
+            AppearanceConfig(
+                foreground = Contrast.Rgb(foregroundR.toFloat(), foregroundG.toFloat(), foregroundB.toFloat()),
+                background = Contrast.Rgb(backgroundR.toFloat(), backgroundG.toFloat(), backgroundB.toFloat()),
+                moduleShape = ModuleShape.valueOf(moduleShape),
+                eyeStyle =
+                    EyeStyle(
+                        shape = ModuleShape.valueOf(eyeShape),
+                        colour =
+                            if (eyeR != null && eyeG != null && eyeB != null) {
+                                Contrast.Rgb(eyeR.toFloat(), eyeG.toFloat(), eyeB.toFloat())
+                            } else {
+                                null
+                            },
+                    ),
+            )
+        val logo =
+            LogoConfig(
+                enabled = logoEnabled,
+                sizeFraction = logoSizeFraction.toFloat(),
+                shape = LogoShape.valueOf(logoShape),
+                placeholder = embeddedLogoImageDataUri == null,
+                imageBytes = null,
+            )
+        val embeddedImage =
+            embeddedLogoImageDataUri?.let {
+                QrSvgRenderer.EmbeddedLogoImage(it, embeddedLogoImageWidth, embeddedLogoImageHeight)
+            }
+        return QrSvgRenderer.render(matrix, appearance, logo, embeddedImage)
+    }
 }
 
 /**

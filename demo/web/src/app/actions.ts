@@ -24,14 +24,6 @@ export interface GenerateQrInput {
   merchantName: string;
 }
 
-export interface QrMatrixData {
-  size: number;
-  /** Row-major, quiet zone included — same layout as ModuleMatrix/QrModuleMatrixJs. */
-  dark: boolean[];
-  /** True where a module belongs to a finder pattern — styled via "eye style", not moduleShape. */
-  finder: boolean[];
-}
-
 export interface GenerateQrOutput {
   success: boolean;
   raw: string | null;
@@ -39,7 +31,6 @@ export interface GenerateQrOutput {
   amount: string | null;
   errors: string[];
   warnings: string[];
-  matrix: QrMatrixData | null;
 }
 
 function blankToNull(value: string): string | null {
@@ -72,19 +63,7 @@ export async function generatePayNowQr(input: GenerateQrInput): Promise<Generate
       amount: null,
       errors: [...result.errors],
       warnings: [...result.warnings],
-      matrix: null,
     };
-  }
-
-  const matrix = encodeQr(result.raw, "M");
-  const dark: boolean[] = new Array(matrix.size * matrix.size);
-  const finder: boolean[] = new Array(matrix.size * matrix.size);
-  for (let y = 0; y < matrix.size; y++) {
-    for (let x = 0; x < matrix.size; x++) {
-      const i = y * matrix.size + x;
-      dark[i] = matrix.isDark(x, y);
-      finder[i] = matrix.isFinder(x, y);
-    }
   }
 
   return {
@@ -94,8 +73,56 @@ export async function generatePayNowQr(input: GenerateQrInput): Promise<Generate
     amount: result.amount ?? null,
     errors: [],
     warnings: [...result.warnings],
-    matrix: { size: matrix.size, dark, finder },
   };
+}
+
+export interface EmbeddedLogoImageInput {
+  dataUri: string;
+  width: number;
+  height: number;
+}
+
+export interface RenderQrSvgInput {
+  payload: string;
+  foreground: RgbInput;
+  background: RgbInput;
+  /** null means "use the foreground colour" — same default as Kotlin's EyeStyle.colour. */
+  eyeColor: RgbInput | null;
+  moduleShape: "SQUARE" | "ROUNDED" | "DOT";
+  eyeShape: "SQUARE" | "ROUNDED" | "DOT";
+  logoEnabled: boolean;
+  logoSizeFraction: number;
+  logoShape: "SQUARE" | "ROUNDED" | "CIRCLE";
+  logoImage: EmbeddedLogoImageInput | null;
+}
+
+/**
+ * Encodes [payload] and renders it to SVG markup via QrModuleMatrixJs.toSvg — the exact
+ * same QrSvgRenderer every Compose platform's SVG export calls (see qr/src/commonMain/
+ * .../QrSvgRenderer.kt). This app draws nothing itself; it only displays what :qr
+ * returns.
+ */
+export async function renderQrSvg(input: RenderQrSvgInput): Promise<string> {
+  const matrix = encodeQr(input.payload, "M");
+  return matrix.toSvg(
+    input.foreground.r,
+    input.foreground.g,
+    input.foreground.b,
+    input.background.r,
+    input.background.g,
+    input.background.b,
+    input.eyeColor?.r,
+    input.eyeColor?.g,
+    input.eyeColor?.b,
+    input.moduleShape,
+    input.eyeShape,
+    input.logoEnabled,
+    input.logoSizeFraction,
+    input.logoShape,
+    input.logoImage?.dataUri,
+    input.logoImage?.width ?? 0,
+    input.logoImage?.height ?? 0,
+  );
 }
 
 export interface RgbInput {
