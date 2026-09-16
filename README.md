@@ -102,6 +102,18 @@ running the build below.
 ./gradlew :qr:jsNodeProductionLibraryDistribution
 ```
 
+### Native-UI demos
+
+[`demo/`](demo/) proves the point of publishing these two modules at all: a skeleton
+native-Swift app (`demo/ios/`) and a skeleton native-JS app (`demo/web/`) each build a
+PayNow payload and encode it into a QR module matrix, using nothing but the locally-built
+library artifacts above — no Compose Multiplatform, no `:ui`, no `:composeApp`. Both were
+actually built and *run* (not just compiled) against real inputs, producing byte-for-byte
+identical output on both platforms; `demo/README.md` has the exact commands and the
+captured output. Android has no separate demo — `composeApp` already depends on
+`:payload`/`:qr` directly, which is a real, continuously-tested consumer already (see
+`demo/README.md` for why that's the right call rather than standing up a redundant one).
+
 ### Publishing a release
 
 `.github/workflows/publish.yml` runs on a `vX.Y.Z` tag push (or manually via

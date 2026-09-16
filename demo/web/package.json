@@ -1,0 +1,14 @@
+{
+  "name": "qr-studio-sg-web-demo",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Skeleton native-JS consumer of the published payload/qr npm packages — no Compose Multiplatform, no :ui or :composeApp.",
+  "scripts": {
+    "demo": "node --preserve-symlinks index.js"
+  },
+  "dependencies": {
+    "@khalid64927/qr-studio-sg-payload": "file:../../payload/build/dist/js/productionLibrary",
+    "@khalid64927/qr-studio-sg-qr": "file:../../qr/build/dist/js/productionLibrary",
+    "@js-joda/core": "3.2.0"
+  }
+}

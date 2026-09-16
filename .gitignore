@@ -27,3 +27,11 @@ DerivedData/
 *.jks
 *.keystore
 keystore.properties
+
+# demo/ — consumes locally-built artifacts (XCFrameworks, npm tarball dirs), so these are
+# always regenerated, never checked in. package-lock.json is excluded too: it would pin
+# a `file:` dependency's integrity hash to one specific local Gradle build.
+demo/*/node_modules/
+demo/*/package-lock.json
+demo/ios/.build/
+demo/ios/.swiftpm/
