@@ -1,6 +1,9 @@
 package sg.qrstudio.app.ui
 
 import androidx.compose.ui.graphics.ImageBitmap
+import kotlinx.cinterop.ExperimentalForeignApi
+import kotlinx.cinterop.ptr
+import kotlinx.cinterop.toCValues
 import platform.Foundation.NSDocumentDirectory
 import platform.Foundation.NSFileManager
 import platform.Foundation.NSSearchPathForDirectoriesInDomains
@@ -162,6 +165,7 @@ private fun sg.qrstudio.qr.Contrast.Rgb.toHexColor(): String {
     return "#$r$g$b"
 }
 
+@OptIn(ExperimentalForeignApi::class)
 private fun ByteArray.toNSData(): platform.Foundation.NSData =
     platform.Foundation.NSData(bytes = this.toUByteArray().toCValues().ptr, length = this.size.toULong())
 
