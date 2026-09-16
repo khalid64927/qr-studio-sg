@@ -54,6 +54,17 @@ function rgb01ToHex({ r, g, b }: RgbInput): string {
   return `#${c(r)}${c(g)}${c(b)}`;
 }
 
+function downloadBlob(blob: Blob, fileName: string) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = fileName;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+
 export default function Home() {
   const [proxyType, setProxyType] = useState<ProxyTypeInput>("MOBILE");
   const [proxyValue, setProxyValue] = useState("");
@@ -199,6 +210,37 @@ export default function Home() {
   }
 
   const showQr = proxyValue.trim() !== "" && result?.success === true && !!svg;
+
+  function handleDownloadSvg() {
+    if (!svg) return;
+    downloadBlob(new Blob([svg], { type: "image/svg+xml" }), "qr-code.svg");
+  }
+
+  /**
+   * The preview is already vector (QrSvgRenderer's output, via renderQrSvg — see
+   * QrSvgView.tsx), so a PNG is just that same SVG rasterised onto a canvas at a fixed
+   * high resolution — no separate raster-drawing code, unlike the Compose app's
+   * QrBitmapRenderer, which exists because Canvas/ImageBitmap there needs a real
+   * platform bitmap to draw into. The browser does the same job here via <canvas>.
+   */
+  function handleDownloadPng() {
+    if (!svg) return;
+    const url = URL.createObjectURL(new Blob([svg], { type: "image/svg+xml" }));
+    const img = new Image();
+    img.onload = () => {
+      const size = 2048;
+      const canvas = document.createElement("canvas");
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext("2d");
+      ctx?.drawImage(img, 0, 0, size, size);
+      URL.revokeObjectURL(url);
+      canvas.toBlob((blob) => {
+        if (blob) downloadBlob(blob, "qr-code.png");
+      }, "image/png");
+    };
+    img.src = url;
+  }
 
   return (
     <div className="mx-auto w-full max-w-5xl flex-1 px-6 py-12">
@@ -376,6 +418,25 @@ export default function Home() {
                 </div>
               )}
             </div>
+
+            {showQr && (
+              <div className="mt-4 flex gap-2">
+                <button
+                  type="button"
+                  onClick={handleDownloadPng}
+                  className="flex-1 rounded-lg border border-border bg-surface px-3.5 py-2 text-sm font-medium transition-colors hover:border-accent"
+                >
+                  Download PNG
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDownloadSvg}
+                  className="flex-1 rounded-lg border border-border bg-surface px-3.5 py-2 text-sm font-medium transition-colors hover:border-accent"
+                >
+                  Download SVG
+                </button>
+              </div>
+            )}
 
             {result?.success && (
               <div className="mt-4 space-y-2">

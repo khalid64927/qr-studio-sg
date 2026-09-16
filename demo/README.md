@@ -187,6 +187,13 @@ Action:
   shape (square/rounded/dot). The WCAG contrast floor (FR-402/FR-407: blocked below 3:1,
   warned below 4.5:1) is checked by calling `checkContrast()` — the *same* `Contrast`
   object the Compose export gate uses — not reimplemented luminance math in JS.
+- **Download PNG / Download SVG** — below the preview once a QR is showing. SVG is a
+  direct `Blob` download of the same markup already on screen. PNG rasterises that same
+  SVG onto an offscreen `<canvas>` at a fixed 2048×2048 and exports that — the browser
+  does the actual rasterising (`<canvas>`'s `drawImage`), so there's no hand-written
+  raster-drawing code here the way there is in Compose's `QrBitmapRenderer` (which needs
+  one because Android/iOS/Desktop each need a real platform bitmap to draw into; a
+  browser's `<canvas>` already *is* that surface for any SVG you hand it).
 
 This app draws nothing itself. `QrModuleMatrixJs.toSvg(...)` — a thin `js` facade
 wrapper around `QrSvgRenderer` in `:qr`'s commonMain — renders the whole symbol
