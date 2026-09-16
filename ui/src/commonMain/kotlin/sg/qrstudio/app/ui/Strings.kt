@@ -1,5 +1,7 @@
 package sg.qrstudio.app.ui
 
+import sg.qrstudio.payload.ProxyType
+
 /**
  * FR-704: every user-facing string lives here so the app can be localised later.
  * English only in v1. Validation copy lives in the payload module's PayloadStrings.
@@ -11,10 +13,13 @@ object Strings {
     const val SECTION_PAYMENT = "Payment"
 
     const val PROXY_TYPE_MOBILE = "Mobile number"
+    const val PROXY_TYPE_NRIC = "NRIC/FIN"
     const val PROXY_TYPE_UEN = "UEN"
     const val PROXY_LABEL_MOBILE = "Mobile number"
+    const val PROXY_LABEL_NRIC = "NRIC/FIN"
     const val PROXY_LABEL_UEN = "UEN"
     const val PROXY_PLACEHOLDER_MOBILE = "9123 4567"
+    const val PROXY_PLACEHOLDER_NRIC = "S1234567D"
     const val PROXY_PLACEHOLDER_UEN = "201403121W"
 
     const val AMOUNT_LABEL = "Amount (SGD)"
@@ -30,6 +35,7 @@ object Strings {
     const val MERCHANT_NAME_HELP = "Shown in the payer's app before they confirm."
 
     const val PROXY_EXAMPLE_MOBILE = "e.g. 9123 4567"
+    const val PROXY_EXAMPLE_NRIC = "e.g. S1234567D"
     const val PROXY_EXAMPLE_UEN = "e.g. 201403121W"
 
     const val ERROR_CORRECTION_LABEL = "Error correction"
@@ -62,9 +68,31 @@ object Strings {
         "Independent tool. Not affiliated with or endorsed by any bank, ABS, IMDA or MAS. " +
             "You are responsible for verifying recipient details before use."
 
-    fun proxyLabel(isMobile: Boolean) = if (isMobile) PROXY_LABEL_MOBILE else PROXY_LABEL_UEN
+    fun proxyType(type: ProxyType) =
+        when (type) {
+            ProxyType.MOBILE -> PROXY_TYPE_MOBILE
+            ProxyType.NRIC -> PROXY_TYPE_NRIC
+            ProxyType.UEN -> PROXY_TYPE_UEN
+        }
 
-    fun proxyPlaceholder(isMobile: Boolean) = if (isMobile) PROXY_PLACEHOLDER_MOBILE else PROXY_PLACEHOLDER_UEN
+    fun proxyLabel(type: ProxyType) =
+        when (type) {
+            ProxyType.MOBILE -> PROXY_LABEL_MOBILE
+            ProxyType.NRIC -> PROXY_LABEL_NRIC
+            ProxyType.UEN -> PROXY_LABEL_UEN
+        }
 
-    fun proxyExample(isMobile: Boolean) = if (isMobile) PROXY_EXAMPLE_MOBILE else PROXY_EXAMPLE_UEN
+    fun proxyPlaceholder(type: ProxyType) =
+        when (type) {
+            ProxyType.MOBILE -> PROXY_PLACEHOLDER_MOBILE
+            ProxyType.NRIC -> PROXY_PLACEHOLDER_NRIC
+            ProxyType.UEN -> PROXY_PLACEHOLDER_UEN
+        }
+
+    fun proxyExample(type: ProxyType) =
+        when (type) {
+            ProxyType.MOBILE -> PROXY_EXAMPLE_MOBILE
+            ProxyType.NRIC -> PROXY_EXAMPLE_NRIC
+            ProxyType.UEN -> PROXY_EXAMPLE_UEN
+        }
 }

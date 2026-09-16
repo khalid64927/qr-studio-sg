@@ -16,6 +16,8 @@ enum class IssueCode {
     UEN_BAD_LENGTH,
     UEN_BAD_CHARACTERS,
     UEN_UNRECOGNISED_PATTERN,
+    NRIC_EMPTY,
+    NRIC_BAD_FORMAT,
     AMOUNT_NOT_A_NUMBER,
     AMOUNT_TOO_SMALL,
     AMOUNT_TOO_LARGE,
@@ -61,7 +63,7 @@ data class ValidationResult(
 object PayloadStrings {
     fun of(code: IssueCode): String =
         when (code) {
-            IssueCode.PROXY_EMPTY -> "Enter the mobile number or UEN that should receive the payment."
+            IssueCode.PROXY_EMPTY -> "Enter the mobile number, NRIC/FIN or UEN that should receive the payment."
             IssueCode.MOBILE_BAD_FORMAT -> "A Singapore mobile number has 8 digits, for example 9123 4567."
             IssueCode.MOBILE_BAD_PREFIX -> "Singapore mobile numbers start with 8 or 9."
             IssueCode.UEN_EMPTY -> "Enter your UEN."
@@ -69,6 +71,10 @@ object PayloadStrings {
             IssueCode.UEN_BAD_CHARACTERS -> "A UEN contains only letters and numbers."
             IssueCode.UEN_UNRECOGNISED_PATTERN ->
                 "This does not look like a usual UEN format. Double-check it before you share the code."
+            IssueCode.NRIC_EMPTY -> "Enter your NRIC or FIN."
+            IssueCode.NRIC_BAD_FORMAT ->
+                "An NRIC or FIN starts with S, T, F or G, followed by 7 digits and a letter, " +
+                    "for example S1234567D."
             IssueCode.AMOUNT_NOT_A_NUMBER -> "Enter the amount as a number, for example 25.50."
             IssueCode.AMOUNT_TOO_SMALL -> "The smallest amount you can request is 0.01."
             IssueCode.AMOUNT_TOO_LARGE -> "The largest amount you can request is 999999.99."
@@ -97,6 +103,7 @@ object Validation {
     private val UEN_LOCAL_COMPANY = Regex("^\\d{9}[A-Z]$") // yyyynnnnnX
     private val UEN_OTHER_ENTITY = Regex("^[TSR]\\d{2}[A-Z]{2}\\d{4}[A-Z]$") // TyyPQnnnnX
     private val ALPHANUMERIC = Regex("^[A-Z0-9]+$")
+    private val NRIC = Regex("^[STFG]\\d{7}[A-Z]$")
     private val SAFE_REFERENCE = Regex("^[A-Za-z0-9_-]+$") // FR-114
 
     /** Printable ASCII, 0x20..0x7E. FR-111. */
@@ -121,6 +128,9 @@ object Validation {
 
     /** FR-102: uppercase and strip incidental whitespace before matching. */
     fun normaliseUen(raw: String): String = raw.trim().filter { !it.isWhitespace() }.uppercase()
+
+    /** Uppercase and strip incidental whitespace before matching, mirroring [normaliseUen]. */
+    fun normaliseNric(raw: String): String = raw.trim().filter { !it.isWhitespace() }.uppercase()
 
     /**
      * FR-105: exactly two decimal places, no thousands separators and no currency symbol.
@@ -197,6 +207,14 @@ object Validation {
                         !UEN_LOCAL_COMPANY.matches(uen) &&
                         !UEN_OTHER_ENTITY.matches(uen) ->
                         warn(Field.PROXY, IssueCode.UEN_UNRECOGNISED_PATTERN)
+                }
+            }
+
+            ProxyType.NRIC -> {
+                val nric = normaliseNric(rawProxy)
+                when {
+                    nric.isEmpty() -> error(Field.PROXY, IssueCode.NRIC_EMPTY)
+                    !NRIC.matches(nric) -> error(Field.PROXY, IssueCode.NRIC_BAD_FORMAT)
                 }
             }
         }

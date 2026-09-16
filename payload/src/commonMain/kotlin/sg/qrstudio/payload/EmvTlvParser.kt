@@ -112,6 +112,7 @@ object PayNowDetector {
         val proxyType =
             when (template.child("01")?.value) {
                 ProxyType.MOBILE.code -> ProxyType.MOBILE
+                ProxyType.NRIC.code -> ProxyType.NRIC
                 ProxyType.UEN.code -> ProxyType.UEN
                 else -> return null
             }
