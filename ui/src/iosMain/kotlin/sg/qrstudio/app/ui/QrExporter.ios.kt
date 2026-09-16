@@ -1,10 +1,13 @@
 package sg.qrstudio.app.ui
 
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asSkiaBitmap
 import kotlinx.cinterop.BetaInteropApi
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.allocArrayOf
 import kotlinx.cinterop.memScoped
+import org.jetbrains.skia.EncodedImageFormat
+import org.jetbrains.skia.Image
 import platform.Foundation.NSData
 import platform.Foundation.NSDocumentDirectory
 import platform.Foundation.NSFileManager
@@ -18,6 +21,12 @@ import sg.qrstudio.qr.LogoConfig
 import sg.qrstudio.qr.ModuleMatrix
 import sg.qrstudio.qr.QrSvgRenderer
 
+/**
+ * The drawing itself is shared — see [QrBitmapRenderer] — which is backed by Skia here
+ * too (Compose Multiplatform's iOS target renders via skiko, the same as Desktop), so
+ * this produces a real raster PNG now instead of the SVG-under-a-.png-name this used to
+ * fall back to.
+ */
 actual fun exportQrAsPng(
     matrix: ModuleMatrix,
     appearance: AppearanceConfig,
@@ -26,8 +35,15 @@ actual fun exportQrAsPng(
     pixelSize: Int,
     fileName: String,
 ) {
-    // SVG stands in for PNG here — see exportQrAsSvg; scanners don't care about format.
-    writeQrFile(matrix, appearance, logo, fileName)
+    try {
+        val embeddedImage = if (logo.enabled && !logo.placeholder) decodedImage else null
+        val bitmap = QrBitmapRenderer.render(matrix, appearance, logo, embeddedImage, pixelSize)
+        val pngData = Image.makeFromBitmap(bitmap.asSkiaBitmap()).encodeToData(EncodedImageFormat.PNG) ?: return
+
+        writeToDocuments(fileName, pngData.bytes.toNSData())
+    } catch (e: Exception) {
+        println("❌ Export failed: ${e.message}")
+    }
 }
 
 actual fun exportQrAsSvg(
@@ -37,36 +53,33 @@ actual fun exportQrAsSvg(
     decodedImage: ImageBitmap?,
     fileName: String,
 ) {
-    writeQrFile(matrix, appearance, logo, fileName)
-}
-
-private fun writeQrFile(
-    matrix: ModuleMatrix,
-    appearance: AppearanceConfig,
-    logo: LogoConfig,
-    fileName: String,
-) {
     try {
-        val paths =
-            NSSearchPathForDirectoriesInDomains(
-                NSDocumentDirectory,
-                NSUserDomainMask,
-                true,
-            )
-        val documentsPath = paths.firstOrNull() as? NSString ?: return
-        val filePath = documentsPath.stringByAppendingPathComponent(fileName)
-
         val svg = QrSvgRenderer.render(matrix, appearance, logo, embeddedImageFor(logo))
-
-        NSFileManager.defaultManager().createFileAtPath(
-            filePath,
-            contents = svg.encodeToByteArray().toNSData(),
-            attributes = null,
-        )
-        println("✓ QR code saved to: $filePath")
+        writeToDocuments(fileName, svg.encodeToByteArray().toNSData())
     } catch (e: Exception) {
         println("❌ Export failed: ${e.message}")
     }
+}
+
+private fun writeToDocuments(
+    fileName: String,
+    contents: NSData,
+) {
+    val paths =
+        NSSearchPathForDirectoriesInDomains(
+            NSDocumentDirectory,
+            NSUserDomainMask,
+            true,
+        )
+    val documentsPath = paths.firstOrNull() as? NSString ?: return
+    val filePath = documentsPath.stringByAppendingPathComponent(fileName)
+
+    NSFileManager.defaultManager().createFileAtPath(
+        filePath,
+        contents = contents,
+        attributes = null,
+    )
+    println("✓ QR code saved to: $filePath")
 }
 
 /** Skia (skiko) decodes on iOS the same as desktop/web — see ImageDecoder.ios.kt. */
