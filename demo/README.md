@@ -83,8 +83,12 @@ Action:
   `PayNowPayloadBuilder`/`Validation` through `buildPayNowQr`. Errors and warnings shown
   are exactly what `:payload` returned; nothing is reimplemented in TypeScript.
 - **Branding** — a centre logo toggle, size slider (bounds fetched from
-  `logoSizeBounds()`, not hardcoded), and shape (square/rounded/circle), same mechanics
-  and same "no real image upload yet" placeholder as the Compose app itself.
+  `logoSizeBounds()`, not hardcoded), shape (square/rounded/circle), and a real image
+  upload (`<input type="file">` → `createObjectURL` → drawn via `Canvas.drawImage`,
+  aspect-ratio-preserving, same scaling math as Compose's `drawLogoImage`) — this one
+  goes *further* than the Compose app, which still only has the placeholder mark; see
+  the root README's roadmap. Browser-native decoding needs no Kotlin at all, so this
+  didn't touch `:payload`/`:qr`.
 - **Appearance** — foreground/background/eye colour pickers and independent module/eye
   shape (square/rounded/dot). The WCAG contrast floor (FR-402/FR-407: blocked below 3:1,
   warned below 4.5:1) is checked by calling `checkContrast()` — the *same* `Contrast`
@@ -101,10 +105,10 @@ the comment on why it's not Adyen's actual design system or assets.
 Screenshots — captured live from `npm run build && npm run start`, same inputs as the
 iOS demo, [`../screenshots/`](../screenshots/):
 
-| | | |
-|---|---|---|
-| [![Navy, rounded modules, dot eyes, logo](../screenshots/paynow-qr-navy-rounded-dot-logo.jpg)](../screenshots/paynow-qr-navy-rounded-dot-logo.jpg) | [![Malachite green dots, navy eyes, circle logo](../screenshots/paynow-qr-green-dot-circle-logo.jpg)](../screenshots/paynow-qr-green-dot-circle-logo.jpg) | [![Contrast blocked warning](../screenshots/paynow-qr-contrast-blocked-warning.jpg)](../screenshots/paynow-qr-contrast-blocked-warning.jpg) |
-| Navy, rounded modules, dot eyes, logo | Malachite green dots, navy eyes, circle logo | Contrast blocked — FR-402 |
+| | | | |
+|---|---|---|---|
+| [![Navy, rounded modules, dot eyes, logo](../screenshots/paynow-qr-navy-rounded-dot-logo.jpg)](../screenshots/paynow-qr-navy-rounded-dot-logo.jpg) | [![Malachite green dots, navy eyes, circle logo](../screenshots/paynow-qr-green-dot-circle-logo.jpg)](../screenshots/paynow-qr-green-dot-circle-logo.jpg) | [![Contrast blocked warning](../screenshots/paynow-qr-contrast-blocked-warning.jpg)](../screenshots/paynow-qr-contrast-blocked-warning.jpg) | [![Uploaded logo image](../screenshots/paynow-qr-uploaded-logo.jpg)](../screenshots/paynow-qr-uploaded-logo.jpg) |
+| Navy, rounded modules, dot eyes, logo | Malachite green dots, navy eyes, circle logo | Contrast blocked — FR-402 | A real uploaded image, not the placeholder |
 
 ```bash
 cd demo/web

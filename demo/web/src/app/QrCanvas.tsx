@@ -75,6 +75,27 @@ function fillLogoPlate(
   }
 }
 
+/**
+ * Ports drawLogoImage's scaling: fit within the padded logo area maintaining aspect
+ * ratio, centred — same 5px padding constant as the plate/data-module exclusion area.
+ */
+function drawLogoImage(
+  ctx: CanvasRenderingContext2D,
+  left: number,
+  top: number,
+  size: number,
+  image: HTMLImageElement,
+) {
+  const padding = 5;
+  const available = size - padding * 2;
+  const aspect = image.naturalWidth / image.naturalHeight;
+  const [scaledWidth, scaledHeight] = aspect > 1 ? [available, available / aspect] : [available * aspect, available];
+
+  const cx = left + size / 2;
+  const cy = top + size / 2;
+  ctx.drawImage(image, cx - scaledWidth / 2, cy - scaledHeight / 2, scaledWidth, scaledHeight);
+}
+
 function withinLogoArea(
   moduleX: number,
   moduleY: number,
@@ -111,11 +132,14 @@ export function QrCanvas({
   matrix,
   appearance,
   logo,
+  logoImage,
   onLogoGeometry,
 }: {
   matrix: QrMatrixData | null;
   appearance: AppearanceState;
   logo: LogoState;
+  /** A loaded, decoded image to draw in the logo area — null shows the placeholder instead. */
+  logoImage?: HTMLImageElement | null;
   /** Reports the logo's on-canvas pixel box, so a caller can overlay a placeholder icon. */
   onLogoGeometry?: (geometry: LogoGeometry | null) => void;
 }) {
@@ -178,11 +202,12 @@ export function QrCanvas({
     if (logo.enabled) {
       ctx.fillStyle = background;
       fillLogoPlate(ctx, logoLeft, logoTop, logoSize, logo.shape);
+      if (logoImage) drawLogoImage(ctx, logoLeft, logoTop, logoSize, logoImage);
       onLogoGeometry?.({ left: logoLeft, top: logoTop, size: logoSize });
     } else {
       onLogoGeometry?.(null);
     }
-  }, [matrix, appearance, logo, onLogoGeometry]);
+  }, [matrix, appearance, logo, logoImage, onLogoGeometry]);
 
   return (
     <canvas

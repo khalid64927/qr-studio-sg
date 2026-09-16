@@ -68,6 +68,10 @@ export default function Home() {
   const [logoSizeFraction, setLogoSizeFraction] = useState(0.2);
   const [logoShape, setLogoShape] = useState<LogoShapeValue>("ROUNDED");
   const [logoGeometry, setLogoGeometry] = useState<LogoGeometry | null>(null);
+  const [logoImage, setLogoImage] = useState<HTMLImageElement | null>(null);
+  const [logoFileName, setLogoFileName] = useState<string | null>(null);
+  const [logoFileError, setLogoFileError] = useState<string | null>(null);
+  const logoObjectUrl = useRef<string | null>(null);
 
   const [result, setResult] = useState<GenerateQrOutput | null>(null);
   const [appearanceCheck, setAppearanceCheck] = useState<AppearanceCheckOutput | null>(null);
@@ -120,6 +124,51 @@ export default function Home() {
     }, APPEARANCE_DEBOUNCE_MS);
     return () => clearTimeout(timer);
   }, [foreground, background, eyeColor]);
+
+  // Revoke the previous object URL whenever it's replaced or the component unmounts —
+  // otherwise each new upload leaks the last one for the tab's lifetime.
+  useEffect(() => {
+    return () => {
+      if (logoObjectUrl.current) URL.revokeObjectURL(logoObjectUrl.current);
+    };
+  }, []);
+
+  const MAX_LOGO_BYTES = 5 * 1024 * 1024;
+
+  function handleLogoFileSelected(file: File | undefined) {
+    setLogoFileError(null);
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      setLogoFileError("Choose an image file (PNG, JPG, etc).");
+      return;
+    }
+    if (file.size > MAX_LOGO_BYTES) {
+      setLogoFileError("Image is larger than 5MB.");
+      return;
+    }
+
+    const url = URL.createObjectURL(file);
+    const image = new Image();
+    image.onload = () => {
+      if (logoObjectUrl.current) URL.revokeObjectURL(logoObjectUrl.current);
+      logoObjectUrl.current = url;
+      setLogoImage(image);
+      setLogoFileName(file.name);
+    };
+    image.onerror = () => {
+      URL.revokeObjectURL(url);
+      setLogoFileError("Couldn't read that image file.");
+    };
+    image.src = url;
+  }
+
+  function handleLogoImageRemoved() {
+    if (logoObjectUrl.current) URL.revokeObjectURL(logoObjectUrl.current);
+    logoObjectUrl.current = null;
+    setLogoImage(null);
+    setLogoFileName(null);
+    setLogoFileError(null);
+  }
 
   const showQr = proxyValue.trim() !== "" && result?.matrix;
 
@@ -194,6 +243,36 @@ export default function Home() {
 
             {logoEnabled && logoBounds && (
               <>
+                <Field label="Logo image">
+                  <div className="flex items-center gap-3">
+                    <label className="cursor-pointer rounded-lg border border-border bg-surface px-3.5 py-2 text-sm font-medium transition-colors hover:border-accent">
+                      Choose file
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => handleLogoFileSelected(e.target.files?.[0])}
+                      />
+                    </label>
+                    {logoFileName && (
+                      <>
+                        <span className="truncate text-sm text-muted">{logoFileName}</span>
+                        <button
+                          type="button"
+                          onClick={handleLogoImageRemoved}
+                          className="text-sm font-medium text-danger hover:underline"
+                        >
+                          Remove
+                        </button>
+                      </>
+                    )}
+                  </div>
+                  {logoFileError && <p className="mt-1.5 text-xs text-danger">{logoFileError}</p>}
+                  {!logoFileName && (
+                    <p className="mt-1.5 text-xs text-muted">No image chosen — a placeholder mark is shown.</p>
+                  )}
+                </Field>
+
                 <Field label={`Logo size — ${Math.round(logoSizeFraction * 100)}%`}>
                   <input
                     type="range"
@@ -268,9 +347,10 @@ export default function Home() {
                     matrix={result!.matrix}
                     appearance={{ foreground, background, eyeColor, moduleShape, eyeShape }}
                     logo={{ enabled: logoEnabled, sizeFraction: logoSizeFraction, shape: logoShape }}
+                    logoImage={logoImage}
                     onLogoGeometry={setLogoGeometry}
                   />
-                  {logoEnabled && logoGeometry && (
+                  {logoEnabled && logoGeometry && !logoImage && (
                     <LogoPlaceholderIcon geometry={logoGeometry} background={background} />
                   )}
                 </>
