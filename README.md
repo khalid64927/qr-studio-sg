@@ -41,9 +41,13 @@ SGQR label from your bank or acquirer rather than self-generating one.
 ```
 payload/      EMVCo TLV builder, CRC-16, validators, parser              — pure Kotlin
 qr/           QR encoder, module matrix, mask selection, appearance      — pure Kotlin
-              (colour contrast, module/eye shapes, logo backing plate)
-composeApp/   Compose Multiplatform UI, renderer, live preview, branding
+              (colour contrast, module/eye shapes, logo backing plate, QrSvgRenderer)
+ui/           Every screen, component and the design system itself — Compose
+              Multiplatform, themed with the same Adyen-inspired palette as demo/web
               (Android, iOS, desktop, web/Wasm; export not yet built)
+composeApp/   Per-platform entry points only (MainActivity, main(), MainViewController)
+              — a thin shell that calls ui/'s App() and nothing else, so a
+              platform-specific look and feel is a change confined to ui/
 ```
 
 `payload/` and `qr/` are standalone Gradle modules with no dependency on the app or on
@@ -117,14 +121,17 @@ KDoc). Consolidating it surfaced and fixed two real bugs along the way: iOS's pi
 logo image was never actually decoded (`decodeImageBytes` was a `TODO` returning `null`
 unconditionally — Skia/skiko, already linked in for the Compose preview, needed no
 platform interop at all), and Android's SVG logo-image embedding was a silent no-op
-(`drawLogoImageSvg` was an empty function body). See
-[`demo/screenshots/`](demo/screenshots/) for a few customizations, captured live from a
-real browser session. Both demos were actually built and *run* (not just compiled)
-against real inputs, producing byte-for-byte identical payloads on both platforms;
-`demo/README.md` has the exact commands and what was verified. Android has no separate
-demo — `composeApp` already depends on `:payload`/`:qr` directly, which is a real,
-continuously-tested consumer already (see `demo/README.md` for why that's the right call
-rather than standing up a redundant one).
+(`drawLogoImageSvg` was an empty function body). `ui/`'s own theme
+(`QrStudioTheme.kt`) uses the same Adyen-inspired palette as `demo/web` too, verified in
+a real browser against the wasmJs build (screenshot in `demo/screenshots/`) — one
+visual language across every platform, not a coincidence of two unrelated colour
+choices. See [`demo/screenshots/`](demo/screenshots/) for a few customizations,
+captured live from a real browser session. Both demos were actually built and *run*
+(not just compiled) against real inputs, producing byte-for-byte identical payloads on
+both platforms; `demo/README.md` has the exact commands and what was verified. Android
+has no separate demo — `composeApp` already depends on `:ui` (and transitively
+`:payload`/`:qr`), which is a real, continuously-tested consumer already (see
+`demo/README.md` for why that's the right call rather than standing up a redundant one).
 
 ### Publishing a release
 
@@ -184,7 +191,7 @@ Run them:
 ./gradlew :payload:jvmTest                 # includes the TC-04 cross-check
 ./gradlew :payload:iosSimulatorArm64Test   # the same suite on Kotlin/Native
 ./gradlew :qr:jvmTest                      # encode -> render -> decode, via ZXing
-./gradlew :composeApp:desktopTest          # renders the real composable, then decodes it
+./gradlew :ui:desktopTest          # renders the real composable, then decodes it
 ./gradlew :composeApp:run                  # the desktop app, with live preview
 ```
 
@@ -281,8 +288,8 @@ Requires **JDK 17+**. Android SDK is needed for Android targets; Xcode for iOS.
 ./gradlew :qr:androidUnitTest                # Android unit tests
 
 # Compose app tests (UI and integration)
-./gradlew :composeApp:desktopTest            # Desktop: renders the real composable, decodes it
-./gradlew :composeApp:testDebugUnitTest      # Android unit tests
+./gradlew :ui:desktopTest            # Desktop: renders the real composable, decodes it
+./gradlew :ui:testDebugUnitTest      # Android unit tests
 ```
 
 ### Desktop (Compose Desktop / JVM)
@@ -295,7 +302,7 @@ Requires **JDK 17+**. Android SDK is needed for Android targets; Xcode for iOS.
 ./gradlew :composeApp:packageDistributionForCurrentOS
 
 # Run tests
-./gradlew :composeApp:desktopTest
+./gradlew :ui:desktopTest
 ```
 
 The desktop app launches with:
@@ -320,7 +327,7 @@ The desktop app launches with:
 ./gradlew :composeApp:run  # Also works for Android when a device is connected
 
 # Run tests
-./gradlew :composeApp:testDebugUnitTest
+./gradlew :ui:testDebugUnitTest
 ```
 
 The Android app:
