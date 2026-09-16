@@ -1,0 +1,76 @@
+# Publishes a one-off snapshot of :payload/:qr (Maven + npm only, no SPM/XCFramework —
+# see README's Publishing section for why) from any branch except main. Manual-only —
+# deliberately no automatic trigger on push, so every push to every branch doesn't spam
+# GitHub Packages with a new version nobody asked for. Run this from the Actions tab
+# when you actually need a branch's in-progress changes available to a downstream
+# consumer (e.g. testing an iOS build against today's :payload changes).
+#
+# Version defaults to version.properties' major.minor.patch with a "-<shortsha>-
+# SNAPSHOT" suffix. Overriding major/minor/patch here also commits the override back to
+# version.properties on the branch this ran on, so it becomes that branch's new default.
+name: Publish Snapshot
+
+on:
+  workflow_dispatch:
+    inputs:
+      major:
+        description: "Override major (blank = use version.properties)"
+        required: false
+        type: string
+      minor:
+        description: "Override minor (blank = use version.properties)"
+        required: false
+        type: string
+      patch:
+        description: "Override patch (blank = use version.properties)"
+        required: false
+        type: string
+
+permissions:
+  contents: write # to commit a version.properties override back, if one was given
+  packages: write # to publish to GitHub Packages (Maven + npm)
+
+jobs:
+  resolve-version:
+    if: github.ref != 'refs/heads/main'
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.resolve.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: resolve
+        run: |
+          source version.properties
+
+          MAJOR="${{ inputs.major }}"
+          MINOR="${{ inputs.minor }}"
+          PATCH="${{ inputs.patch }}"
+          MAJOR="${MAJOR:-$major}"
+          MINOR="${MINOR:-$minor}"
+          PATCH="${PATCH:-$patch}"
+
+          SHORT_SHA=$(git rev-parse --short HEAD)
+          VERSION="$MAJOR.$MINOR.$PATCH-$SHORT_SHA-SNAPSHOT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "## Publishing snapshot \`$VERSION\`" >> "$GITHUB_STEP_SUMMARY"
+
+          if [ -n "${{ inputs.major }}${{ inputs.minor }}${{ inputs.patch }}" ]; then
+            {
+              echo "major=$MAJOR"
+              echo "minor=$MINOR"
+              echo "patch=$PATCH"
+            } > version.properties
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git add version.properties
+            git commit -m "Bump default version to $MAJOR.$MINOR.$PATCH [skip ci]"
+            git push origin HEAD:${{ github.ref }}
+            echo "New default version.properties on this branch: $MAJOR.$MINOR.$PATCH" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+  publish-artifacts:
+    needs: resolve-version
+    uses: ./.github/workflows/publish-artifacts.yml
+    with:
+      version: ${{ needs.resolve-version.outputs.version }}
+    secrets: inherit

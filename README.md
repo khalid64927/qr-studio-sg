@@ -136,9 +136,12 @@ has no separate demo — `composeApp` already depends on `:ui` (and transitively
 ### Publishing a release
 
 `.github/workflows/publish.yml` runs on a `vX.Y.Z` tag push (or manually via
-`workflow_dispatch` for a dry run) and publishes all three registries in parallel jobs.
-It **never pushes a commit back to this repository** — `main` only accepts changes
-through a reviewed PR (branch protection), so the iOS job prints the XCFramework
+`workflow_dispatch` for a dry run) and publishes all three registries in parallel jobs
+— the Maven and npm steps live in `.github/workflows/publish-artifacts.yml`, a reusable
+`workflow_call` workflow shared with `publish-snapshot.yml` below, so that publish logic
+exists in exactly one place; the XCFramework/SPM job stays in `publish.yml` only, since
+snapshots skip it. It **never pushes a commit back to this repository** — `main` only
+accepts changes through a reviewed PR (branch protection), so the iOS job prints the XCFramework
 checksums it computed to the workflow's job summary instead of writing them anywhere,
 and a maintainer pastes them into `Package.swift` and opens a PR. Until that happens
 after the first release, `Package.swift`'s checksums are placeholders and it will not
@@ -158,6 +161,44 @@ than avoiding a second account, swap `config/publishing.gradle.kts`'s repository
 for Maven Central (Sonatype's Central Portal) and the npm job's registry for
 `registry.npmjs.org` — both fully public, no auth to consume, at the cost of an
 account/namespace-verification step this repo hasn't done.
+
+### Publishing a snapshot
+
+`.github/workflows/publish-snapshot.yml` publishes Maven (AAR + JVM jar) and npm only —
+**no SPM/XCFramework** — from any branch except `main`. Use this when a downstream
+consumer needs a branch's in-progress changes before it's merged (e.g. testing an iOS
+build against today's `:payload` changes), not routinely.
+
+**Manual-only, deliberately.** It has no `push` trigger — only `workflow_dispatch`
+(Actions tab → *Publish Snapshot* → *Run workflow*, on the branch you want). An
+automatic snapshot on every push would mean a new GitHub Packages version for every WIP
+commit on every branch, with no way to tell which ones matter; this way a snapshot only
+exists when someone actually asked for one. SPM is skipped for the same reason plus a
+mechanical one — it resolves via git tags or a GitHub Release, both meant to be stable
+references, and a Release per snapshot would just be more of the same clutter.
+
+**Versioning**: `version.properties` at the repo root holds the default
+`major`/`minor`/`patch` (the same numbers a real release under `publish.yml` would use).
+A snapshot run reads those and appends the current commit's short SHA plus `-SNAPSHOT`:
+
+```
+version.properties: major=0 minor=1 patch=0
+→ published version: 0.1.0-a3f9c21-SNAPSHOT
+```
+
+The short SHA (not a random string) is what makes each snapshot traceable back to the
+exact commit it was built from, and — since GitHub Packages' Maven registry doesn't
+reliably support overwriting an existing version — is what keeps repeated snapshots on
+the same branch from colliding.
+
+The `workflow_dispatch` form has optional `major`/`minor`/`patch` override fields, blank
+by default (meaning "use `version.properties` as-is"). Filling one in does two things:
+uses it for that snapshot's version, **and** commits the new `major`/`minor`/`patch`
+back to `version.properties` on the branch the workflow ran on (`[skip ci]`, via the
+workflow's own `GITHUB_TOKEN` — this is the one publishing workflow that *does* push a
+commit back, unlike `publish.yml`, because branch protection only applies to `main` and
+a snapshot never runs there). That becomes the new default for the next snapshot run on
+that branch, so you don't have to keep re-entering an override once you've bumped it.
 
 ## The payload core
 

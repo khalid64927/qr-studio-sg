@@ -36,65 +36,14 @@ jobs:
             echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
           fi
 
-  # Android AAR + plain JVM jar, for a native Android app or any JVM backend.
-  publish-android-jvm:
+  # Maven (AAR + JVM jar) and npm — the actual publish steps live in one place,
+  # publish-artifacts.yml, shared with publish-snapshot.yml's manual branch snapshots.
+  publish-artifacts:
     needs: version
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '17'
-      - uses: gradle/actions/setup-gradle@v4
-      - name: Publish AAR + JVM jar to GitHub Packages
-        run: |
-          ./gradlew \
-            :payload:publishAndroidReleasePublicationToGitHubPackagesRepository \
-            :payload:publishJvmPublicationToGitHubPackagesRepository \
-            :qr:publishAndroidReleasePublicationToGitHubPackagesRepository \
-            :qr:publishJvmPublicationToGitHubPackagesRepository \
-            -PlibraryVersion=${{ needs.version.outputs.version }} \
-            --stacktrace
-        env:
-          GITHUB_ACTOR: ${{ github.actor }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-  # npm packages, for a native web/React/Node UI. See payload's and qr's jsMain "js"
-  # facades — the published .d.ts is hand-designed for JS/TS, not auto-derived from the
-  # full Kotlin API.
-  publish-npm:
-    needs: version
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '17'
-      - uses: gradle/actions/setup-gradle@v4
-      - name: Build npm packages
-        run: |
-          ./gradlew \
-            :payload:jsNodeProductionLibraryDistribution \
-            :qr:jsNodeProductionLibraryDistribution \
-            -PlibraryVersion=${{ needs.version.outputs.version }} \
-            --stacktrace
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          registry-url: 'https://npm.pkg.github.com'
-          scope: '@khalid64927'
-      - name: Publish @khalid64927/qr-studio-sg-payload
-        working-directory: payload/build/dist/js/productionLibrary
-        run: npm publish
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - name: Publish @khalid64927/qr-studio-sg-qr
-        working-directory: qr/build/dist/js/productionLibrary
-        run: npm publish
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    uses: ./.github/workflows/publish-artifacts.yml
+    with:
+      version: ${{ needs.version.outputs.version }}
+    secrets: inherit
 
   # XCFrameworks, for a native SwiftUI/UIKit app via SPM's binaryTarget. Uploaded to a
   # GitHub Release rather than a package registry — SPM binary distribution expects a
