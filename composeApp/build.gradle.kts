@@ -71,6 +71,17 @@ kotlin {
         val webTest by creating { dependsOn(commonTest.get()) }
         wasmJsTest.get().dependsOn(webTest)
         val jsTest by getting { dependsOn(webTest) }
+
+        // The webMain sourceSets block above suppresses Kotlin's default hierarchy
+        // template, which otherwise creates this intermediate source set (shared by
+        // iosArm64Main/iosSimulatorArm64Main) automatically. Without it, iosMain/kotlin
+        // compiles as if it were commonMain — the iOS actuals below never satisfy
+        // commonMain's expect declarations, and every iOS compile fails with "Expected
+        // ... has no actual declaration ... for Native".
+        val iosMain by creating { dependsOn(commonMain.get()) }
+        val iosArm64Main by getting { dependsOn(iosMain) }
+        val iosSimulatorArm64Main by getting { dependsOn(iosMain) }
+
         commonMain.dependencies {
             implementation(projects.payload)
             implementation(projects.qr)

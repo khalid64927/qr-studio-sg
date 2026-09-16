@@ -247,10 +247,10 @@ testing.
 - [x] Compose renderer and live preview, verified by decoding the rendered output
 - [x] Input UI with validation surfacing (Pay To, Payment sections)
 - [x] Appearance and colour-contrast safety (WCAG 2.x verdicts, FR-402 export gate)
-- [x] Branding logo composition (size 8–30%, shapes, backing plate, §9.3 image picker deferred)
+- [x] Branding logo composition (size 8–30%, shapes, backing plate)
+- [x] Image picker integration for real logo uploads (§9.3) — FileKit on Android/desktop/iOS, a native `<input type="file">` on web
 - [ ] PNG and SVG export with platform actuals
 - [ ] Export self-verification (decode-and-compare before enabling export)
-- [ ] Image picker integration for real logo uploads (§9.3, Android/iOS/desktop/web)
 - [ ] Release workflow, web deployment
 - [ ] **Manual bank verification** — blocking for release
 
@@ -318,7 +318,7 @@ The desktop app launches with:
 
 The Android app:
 - Responsive layout (single column on phones, split view on tablets)
-- All Branding and Appearance features (image picker button deferred to §9.3)
+- All Branding and Appearance features, including picking a real logo image (FileKit)
 - Offline: no network calls, everything runs on-device
 
 ### iOS
@@ -376,9 +376,10 @@ python3 -m http.server 8000
 - **Logo enabled:** toggle to add a centre logo
 - **Logo size:** 8–30% of QR width (warning above 25%)
 - **Logo shape:** Square, Rounded, or Circle backing plate
-- **Image picker:** placeholder button, ready for §9.3 ImagePicker integration
-  - Currently uses a stand-in mark so size/shape/placement mechanics are real
-  - Real image picker will be wired when platform integrations (FileDialog, etc.) are added
+- **Image picker:** picks a real image on every platform — FileKit's native picker on
+  Android/desktop/iOS, a real `<input type="file">` on web — and draws it scaled and
+  centred into the logo area. Before anything is picked, a stand-in mark shows so the
+  size/shape/placement mechanics are visible immediately.
 
 #### Appearance (collapsed by default)
 - **Foreground colour:** RGB sliders for the QR code (black by default)

@@ -1,11 +1,17 @@
 package sg.qrstudio.app.ui
 
 import androidx.compose.ui.graphics.ImageBitmap
+import kotlinx.cinterop.BetaInteropApi
+import kotlinx.cinterop.ExperimentalForeignApi
+import kotlinx.cinterop.allocArrayOf
+import kotlinx.cinterop.memScoped
+import platform.Foundation.NSData
 import platform.Foundation.NSDocumentDirectory
 import platform.Foundation.NSFileManager
 import platform.Foundation.NSSearchPathForDirectoriesInDomains
 import platform.Foundation.NSString
 import platform.Foundation.NSUserDomainMask
+import platform.Foundation.create
 import platform.Foundation.stringByAppendingPathComponent
 import sg.qrstudio.qr.AppearanceConfig
 import sg.qrstudio.qr.LogoConfig
@@ -162,8 +168,11 @@ private fun sg.qrstudio.qr.Contrast.Rgb.toHexColor(): String {
     return "#$r$g$b"
 }
 
-private fun ByteArray.toNSData(): platform.Foundation.NSData =
-    platform.Foundation.NSData(bytes = this.toUByteArray().toCValues().ptr, length = this.size.toULong())
+@OptIn(ExperimentalForeignApi::class, BetaInteropApi::class)
+private fun ByteArray.toNSData(): NSData =
+    memScoped {
+        NSData.create(bytes = allocArrayOf(this@toNSData), length = this@toNSData.size.toULong())
+    }
 
 private fun isWithinLogoAreaSvg(
     moduleX: Int,
