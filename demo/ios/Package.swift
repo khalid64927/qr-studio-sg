@@ -25,10 +25,17 @@ import PackageDescription
 // build log and what it demonstrates.
 let package = Package(
     name: "PayNowDemoCLI",
-    platforms: [.iOS(.v14)],
+    platforms: [.iOS(.v15)],
     targets: [
         .executableTarget(
             name: "PayNowDemoCLI",
+            dependencies: ["PayNowPayloadKit", "QrStudioQrKit"]
+        ),
+        // A real SwiftUI app — Pay to / Payment / Appearance, live QR preview — not just
+        // a console script. See README.md for how it's packaged into a runnable .app
+        // and screenshotted without Xcode.
+        .executableTarget(
+            name: "PayNowDemoApp",
             dependencies: ["PayNowPayloadKit", "QrStudioQrKit"]
         ),
         .binaryTarget(

@@ -96,6 +96,79 @@ The Mobile and UEN payload strings are byte-identical to the web demo's for the 
 inputs (proven directly, not just "should be" — same Node call as the web demo's
 verification, `buildPayNowQr('MOBILE', '91234567', …)`, produces the exact same string).
 
+### Native SwiftUI app (`PayNowDemoApp`)
+
+`PayNowDemoCLI` above proves the generated Swift API type-checks and links. This is the
+same libraries driving a real interactive screen — Pay to / Payment / Appearance, a live
+QR preview, Adyen theming — a second executable target in the same `Package.swift`:
+
+```bash
+cd demo/ios
+swift build --triple arm64-apple-ios17.0-simulator \
+  --sdk "$(xcrun --sdk iphonesimulator --show-sdk-path)"
+```
+
+Building the SwiftUI target surfaced one thing the CLI target didn't: `Package.swift`
+had `platforms: [.iOS(.v14)]`, but `Canvas`, `ColorPicker`, and `.tint(_:)` all require
+iOS 15+. Bumped to `.iOS(.v15)`.
+
+Unlike the web demo, there's no SVG surface to hand off to — SwiftUI has no native SVG
+renderer — so `QrCanvasView.swift` draws the `ModuleMatrix` itself via SwiftUI `Canvas`,
+iterating `isDark(x:y:)` per module and applying the same square/rounded-corner-0.3/
+dot-radius-÷2.2 shape math `QrSvgRenderer` uses (see the Web section below), so the
+three renderers stay visually consistent without literally sharing a code path. Payload
+building and QR encoding themselves *are* shared: `PayNowPayloadBuilder.shared.build(…)`
+and `QrEncoder.shared.encode(…)` are the exact same calls `PayNowDemoCLI` makes, driven
+by `@State` instead of a fixed loop. Scoped smaller than the web demo on purpose —
+no Branding/logo section, and eye colour/shape follow the module shape rather than
+having independent controls — since the goal is proving the shared libraries drive a
+real interactive native UI, not re-deriving every web feature.
+
+**Running it without Xcode's iOS platform component**: `swift build` alone produces a
+bare Mach-O executable, not something `simctl` can install — a SwiftUI `App`-protocol
+binary needs a real `.app` bundle (an `Info.plist` + the binary + any dynamic
+frameworks it links, since `PayNowPayloadKit`/`QrStudioQrKit` are XCFrameworks, not
+static libraries). This repo's dev environment has simulator *runtimes* but not Xcode's
+iOS *platform* component, so a normal `xcodebuild`-based `.app` build isn't available
+either — the bundle has to be assembled by hand:
+
+```bash
+mkdir -p .build/PayNowDemoApp.app
+cp .build/arm64-apple-ios-simulator/debug/PayNowDemoApp .build/PayNowDemoApp.app/
+cp -R .build/arm64-apple-ios-simulator/debug/PayNowPayloadKit.framework .build/PayNowDemoApp.app/
+cp -R .build/arm64-apple-ios-simulator/debug/QrStudioQrKit.framework .build/PayNowDemoApp.app/
+# ...write Info.plist (CFBundleExecutable=PayNowDemoApp, CFBundleIdentifier=sg.qrstudio.paynowdemo,
+#  MinimumOSVersion=15.0, UILaunchScreen={}) ...
+codesign --force --sign - .build/PayNowDemoApp.app/PayNowPayloadKit.framework
+codesign --force --sign - .build/PayNowDemoApp.app/QrStudioQrKit.framework
+codesign --force --sign - .build/PayNowDemoApp.app
+
+xcrun simctl install <device-udid> .build/PayNowDemoApp.app
+xcrun simctl launch <device-udid> sg.qrstudio.paynowdemo
+xcrun simctl io <device-udid> screenshot out.png
+```
+
+The frameworks step matters: the executable's `LC_RPATH` is `@loader_path` (checked
+with `otool -l`), meaning it only resolves `QrStudioQrKit.framework`/
+`PayNowPayloadKit.framework` from right next to itself — without copying them into the
+bundle, `simctl launch` fails with `dyld: Library not loaded` before any Swift code
+runs. Every piece of this — bundle assembly, install, launch, and `simctl io screenshot`
+— was previously unvalidated in this repo and is now proven working end-to-end; the
+screenshots below are real captures from a booted iPhone 17 Pro simulator, not
+mockups.
+
+Screenshots — [`../screenshots/`](../screenshots/), same inputs as the web demo:
+
+| | |
+|---|---|
+| [![Mobile proxy, live QR](../screenshots/ios-paynow-qr-mobile.png)](../screenshots/ios-paynow-qr-mobile.png) | [![NRIC/FIN proxy, live QR](../screenshots/ios-paynow-qr-nric.png)](../screenshots/ios-paynow-qr-nric.png) |
+| Mobile — raw payload matches the CLI capture above exactly | NRIC/FIN — same payload string as the CLI's NRIC run |
+
+| | |
+|---|---|
+| [![UEN, Malachite green dot modules](../screenshots/ios-paynow-qr-uen-green-dot.png)](../screenshots/ios-paynow-qr-uen-green-dot.png) | [![Empty state](../screenshots/ios-paynow-qr-empty-state.png)](../screenshots/ios-paynow-qr-empty-state.png) |
+| UEN with the module shape switched to Dot and foreground recoloured to the Malachite accent, drawn live by `QrCanvasView` | Empty state before a proxy value is entered — same placeholder-copy pattern as the web demo |
+
 ## Web
 
 A real Next.js (App Router) app — not just a script. Four sections mirror the Compose
