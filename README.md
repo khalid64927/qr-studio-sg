@@ -46,8 +46,87 @@ composeApp/   Compose Multiplatform UI, renderer, live preview, branding
               (Android, iOS, desktop, web/Wasm; export not yet built)
 ```
 
-`payload/` and `qr/` are standalone Gradle modules with no dependency on the app. Either
-can be extracted and published as a library without touching anything else.
+`payload/` and `qr/` are standalone Gradle modules with no dependency on the app or on
+Compose. Either can be extracted and published as a library without touching anything
+else — see [Publishing](#publishing) for exactly that, to Android/JVM, iOS/SPM and npm.
+
+## Publishing
+
+`payload/` (the EMVCo/PayNow builder) and `qr/` (the encoder and module matrix) are
+plain Kotlin with no Compose or UI dependency, so they can be consumed by a **native-UI
+app** — SwiftUI, Jetpack Views, a plain Node/React backend — that doesn't want this
+repo's Compose Multiplatform renderer at all. They publish to three registries:
+
+| Platform | Artifact | Registry | Consumer |
+|---|---|---|---|
+| Android | AAR | GitHub Packages (Maven) | Gradle, `implementation("sg.qrstudio:payload-android:<version>")` |
+| JVM / desktop | plain jar | GitHub Packages (Maven) | any JVM build tool |
+| iOS | XCFramework | GitHub Release asset, referenced from `Package.swift` | Swift Package Manager |
+| Web / Node | npm package with `.d.ts` | GitHub Packages (npm) | `npm install @khalid64927/qr-studio-sg-payload` |
+
+Not published: `:ui` (composables — see below) and Kotlin/Wasm (this repo's own web
+build uses it internally; it isn't part of the public library surface).
+
+### Why iOS and web needed a small facade, and Android/JVM didn't
+
+`PayNowConfig.expiry` is a `kotlinx-datetime LocalDate`, and `PayNowPayloadBuilder.build`
+returns the sealed interface `PayloadResult` — both compile straight through to a JVM/AAR
+consumer, who reads ordinary Kotlin/Java classes either way. Neither survives the trip to
+JavaScript: `@JsExport` cannot describe a third-party `LocalDate` to TypeScript, and does
+not support sealed types at all. So `payload/src/jsMain/kotlin/…/js/PayNowPayloadJs.kt`
+and `qr/src/jsMain/kotlin/…/js/QrEncoderJs.kt` exist purely to translate — ISO date
+strings in, a flat result class with `success`/`errors`/`warnings` fields out — and they
+compile *only* for the `js(IR)` target. (`:qr`'s public API has no such problem — no
+`LocalDate`, no sealed types — but it still needed a `jsMain` facade for an unrelated
+reason: Kotlin/Wasm, one of `:qr`'s other targets, currently only supports `@JsExport` on
+top-level functions, not classes or enums, so annotating `ModuleMatrix`/`ErrorCorrection`
+directly in `commonMain` would have broken the wasmJs compile this app's own web build
+depends on.) These facades are the actual npm API — see their generated `.d.ts` after
+running the build below.
+
+### Building the artifacts locally
+
+```bash
+# Android AAR + JVM jar, into your local Maven cache (~/.m2)
+./gradlew :payload:publishAndroidReleasePublicationToMavenLocal :payload:publishJvmPublicationToMavenLocal
+./gradlew :qr:publishAndroidReleasePublicationToMavenLocal :qr:publishJvmPublicationToMavenLocal
+
+# iOS XCFramework
+./gradlew :payload:assemblePayNowPayloadKitReleaseXCFramework
+./gradlew :qr:assembleQrStudioQrKitReleaseXCFramework
+# -> payload/build/XCFrameworks/release/PayNowPayloadKit.xcframework
+# -> qr/build/XCFrameworks/release/QrStudioQrKit.xcframework
+
+# npm package (inspect build/dist/js/productionLibrary/ for the .d.ts and package.json)
+./gradlew :payload:jsNodeProductionLibraryDistribution
+./gradlew :qr:jsNodeProductionLibraryDistribution
+```
+
+### Publishing a release
+
+`.github/workflows/publish.yml` runs on a `vX.Y.Z` tag push (or manually via
+`workflow_dispatch` for a dry run) and publishes all three registries in parallel jobs.
+It **never pushes a commit back to this repository** — `main` only accepts changes
+through a reviewed PR (branch protection), so the iOS job prints the XCFramework
+checksums it computed to the workflow's job summary instead of writing them anywhere,
+and a maintainer pastes them into `Package.swift` and opens a PR. Until that happens
+after the first release, `Package.swift`'s checksums are placeholders and it will not
+resolve.
+
+Credentials: the Maven and npm jobs authenticate with the workflow's own
+`GITHUB_TOKEN` — no secrets to configure. Publishing manually from a machine needs a
+GitHub personal access token with `write:packages`, set as `gpr.user`/`gpr.token` in
+`~/.gradle/gradle.properties` (never in this repo — see `config/publishing.gradle.kts`).
+
+**Consuming a published package is not the same as publishing one.** GitHub Packages
+requires authentication for every read, even of a public repository's packages — a
+Gradle consumer needs `read:packages` credentials configured the same way, and an npm
+consumer needs an `.npmrc` pointing `@khalid64927:registry` at
+`https://npm.pkg.github.com` with a `read:packages` token. If that friction matters more
+than avoiding a second account, swap `config/publishing.gradle.kts`'s repository block
+for Maven Central (Sonatype's Central Portal) and the npm job's registry for
+`registry.npmjs.org` — both fully public, no auth to consume, at the cost of an
+account/namespace-verification step this repo hasn't done.
 
 ## The payload core
 
