@@ -10,6 +10,12 @@ plugins {
     alias(libs.plugins.compose.compiler)
 }
 
+/**
+ * The app shell: per-platform entry points only (`MainActivity`, desktop/web `main()`,
+ * `MainViewController`). Every screen, component and design-system type lives in
+ * `:ui` — this module wires a platform's window/activity/viewport to [sg.qrstudio.app.App]
+ * and nothing else, so a platform-specific UI swap never touches this module.
+ */
 kotlin {
     androidTarget {
         @OptIn(ExperimentalKotlinGradlePluginApi::class)
@@ -57,73 +63,24 @@ kotlin {
     }
 
     sourceSets {
-        // Shared between the wasmJs and js(IR) browser targets: both talk to the DOM
-        // through the same kotlinx-browser/org.w3c.dom APIs, so the actuals (image
-        // decoding, file export, native file input) are identical and live here once.
+        // Shared between the wasmJs and js(IR) browser targets — both platform entry
+        // points (main.kt) talk to the DOM the same way.
         val webMain by creating { dependsOn(commonMain.get()) }
         wasmJsMain.get().dependsOn(webMain)
         val jsMain by getting { dependsOn(webMain) }
 
-        // Mirrors webMain: one test source set, run by both wasmJsTest and jsTest, so a
-        // fix verified here is verified for both web targets at once rather than by hand
-        // in a browser (browser automation cannot reliably drive Compose's canvas input,
-        // so this is the trustworthy way to check the web-only actuals).
-        val webTest by creating { dependsOn(commonTest.get()) }
-        wasmJsTest.get().dependsOn(webTest)
-        val jsTest by getting { dependsOn(webTest) }
-
-        // The webMain sourceSets block above suppresses Kotlin's default hierarchy
-        // template, which otherwise creates this intermediate source set (shared by
-        // iosArm64Main/iosSimulatorArm64Main) automatically. Without it, iosMain/kotlin
-        // compiles as if it were commonMain — the iOS actuals below never satisfy
-        // commonMain's expect declarations, and every iOS compile fails with "Expected
-        // ... has no actual declaration ... for Native".
-        val iosMain by creating { dependsOn(commonMain.get()) }
-        val iosArm64Main by getting { dependsOn(iosMain) }
-        val iosSimulatorArm64Main by getting { dependsOn(iosMain) }
-
         commonMain.dependencies {
-            implementation(projects.payload)
-            implementation(projects.qr)
-
-            implementation(compose.runtime)
-            implementation(compose.foundation)
-            implementation(compose.material3)
-            implementation(compose.materialIconsExtended)
-            implementation(compose.ui)
-            implementation(compose.components.resources)
-
-            implementation(libs.lifecycle.viewmodel.compose)
-            implementation(libs.lifecycle.runtime.compose)
-            implementation(libs.kotlinx.datetime)
-            implementation(libs.filekit.core)
-            implementation(libs.filekit.compose)
+            implementation(projects.ui)
         }
         commonTest.dependencies {
             implementation(kotlin("test"))
         }
         androidMain.dependencies {
-            implementation(compose.preview)
             implementation(libs.androidx.activity.compose)
-            // Same fix as desktopMain: without this Dispatchers.Main doesn't resolve and
-            // viewModelScope.launch() throws on the first UI intent.
-            implementation(libs.kotlinx.coroutines.android)
         }
         val desktopMain by getting
         desktopMain.dependencies {
             implementation(compose.desktop.currentOs)
-            // Without this, Dispatchers.Main doesn't exist on the JVM/Swing target and
-            // viewModelScope.launch() throws as soon as any UI intent fires.
-            implementation(libs.kotlinx.coroutines.swing)
-        }
-        // Renders the real Compose renderer offscreen and decodes the result, so the
-        // preview pipeline is verified end to end rather than by a stand-in. Test only.
-        val desktopTest by getting
-        desktopTest.dependencies {
-            implementation(compose.desktop.currentOs)
-            implementation(libs.zxing.core)
-            implementation(libs.zxing.javase)
-            implementation(libs.kotlinx.coroutines.test)
         }
     }
 }

@@ -29,7 +29,7 @@ jobs:
       - name: Spotless (ktlint) format check
         run: ./gradlew spotlessCheck --stacktrace
       - name: Android Lint
-        run: ./gradlew :composeApp:lintDebug :payload:lintDebug :qr:lintDebug --stacktrace
+        run: ./gradlew :composeApp:lintDebug :ui:lintDebug :payload:lintDebug :qr:lintDebug --stacktrace
       - name: Upload lint reports
         if: always()
         uses: actions/upload-artifact@v4

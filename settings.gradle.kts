@@ -26,4 +26,5 @@ dependencyResolutionManagement {
 
 include(":payload")
 include(":qr")
+include(":ui")
 include(":composeApp")
