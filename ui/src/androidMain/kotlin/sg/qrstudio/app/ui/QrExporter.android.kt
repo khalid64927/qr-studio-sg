@@ -1,5 +1,9 @@
 package sg.qrstudio.app.ui
 
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.Paint
+import android.graphics.RectF
 import android.os.Environment
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asAndroidBitmap
@@ -7,8 +11,14 @@ import sg.qrstudio.qr.AppearanceConfig
 import sg.qrstudio.qr.LogoConfig
 import sg.qrstudio.qr.ModuleMatrix
 import java.io.File
-import javax.imageio.ImageIO
+import java.io.FileOutputStream
 
+/**
+ * Uses `android.graphics.Bitmap`/`Canvas`, the real Android rasterisation API — not
+ * `java.awt.BufferedImage`/`Graphics2D`/`ImageIO`, which aren't part of the Android
+ * runtime at all and would crash with `NoClassDefFoundError` on a real device (this was
+ * the previous, broken implementation here).
+ */
 actual fun exportQrAsPng(
     matrix: ModuleMatrix,
     appearance: AppearanceConfig,
@@ -26,19 +36,13 @@ actual fun exportQrAsPng(
 
         val outputFile = File(downloadsDir, fileName)
 
-        // Create image and render QR code
-        val bufferedImage = java.awt.image.BufferedImage(pixelSize, pixelSize, java.awt.image.BufferedImage.TYPE_INT_RGB)
-        val graphics = bufferedImage.createGraphics()
+        val bitmap = Bitmap.createBitmap(pixelSize, pixelSize, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bitmap)
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG)
 
         // Fill background
-        val bgColor =
-            java.awt.Color(
-                (appearance.background.r * 255).toInt(),
-                (appearance.background.g * 255).toInt(),
-                (appearance.background.b * 255).toInt(),
-            )
-        graphics.color = bgColor
-        graphics.fillRect(0, 0, pixelSize, pixelSize)
+        val bgColor = appearance.background.toAndroidColor()
+        canvas.drawColor(bgColor)
 
         // Draw modules
         val modulePixels = pixelSize / matrix.size
@@ -49,8 +53,8 @@ actual fun exportQrAsPng(
         val logoTop = (pixelSize - logoSize) / 2
         val padding = 5
 
-        val fgColor = appearance.foreground.toAwtColor()
-        val eyeColor = appearance.eyeColour.toAwtColor()
+        val fgColor = appearance.foreground.toAndroidColor()
+        val eyeColor = appearance.eyeColour.toAndroidColor()
         for (row in 0 until matrix.size) {
             for (col in 0 until matrix.size) {
                 if (matrix.isDark(col, row)) {
@@ -63,38 +67,46 @@ actual fun exportQrAsPng(
                     }
 
                     val isEye = matrix.typeAt(col, row) == sg.qrstudio.qr.ModuleType.FINDER
-                    graphics.color = if (isEye) eyeColor else fgColor
+                    paint.color = if (isEye) eyeColor else fgColor
                     val shape = if (isEye) appearance.eyeStyle.shape else appearance.moduleShape
-                    drawModuleAwt(graphics, x, y, modulePixels, shape)
+                    drawModuleAndroid(canvas, paint, x, y, modulePixels, shape)
                 }
             }
         }
 
         // Draw logo backing plate if enabled
         if (logo.enabled) {
-            graphics.color = bgColor
+            paint.color = bgColor
             when (logo.shape) {
                 sg.qrstudio.qr.LogoShape.CIRCLE -> {
-                    graphics.fillOval(logoLeft, logoTop, logoSize, logoSize)
+                    val radius = logoSize / 2f
+                    canvas.drawCircle(logoLeft + radius, logoTop + radius, radius, paint)
                 }
                 sg.qrstudio.qr.LogoShape.ROUNDED -> {
-                    graphics.fillRoundRect(logoLeft, logoTop, logoSize, logoSize, 20, 20)
+                    val rect = RectF(logoLeft.toFloat(), logoTop.toFloat(), (logoLeft + logoSize).toFloat(), (logoTop + logoSize).toFloat())
+                    canvas.drawRoundRect(rect, 20f, 20f, paint)
                 }
                 sg.qrstudio.qr.LogoShape.SQUARE -> {
-                    graphics.fillRect(logoLeft, logoTop, logoSize, logoSize)
+                    canvas.drawRect(
+                        logoLeft.toFloat(),
+                        logoTop.toFloat(),
+                        (logoLeft + logoSize).toFloat(),
+                        (logoTop + logoSize).toFloat(),
+                        paint,
+                    )
                 }
             }
 
             // Draw the actual image if available
             if (decodedImage != null && !logo.placeholder) {
-                drawLogoImageOnCanvas(graphics, decodedImage, logoLeft, logoTop, logoSize, logo.shape)
+                drawLogoImageOnCanvas(canvas, decodedImage, logoLeft, logoTop, logoSize, logo.shape)
             }
         }
 
-        graphics.dispose()
-
-        // Save PNG
-        ImageIO.write(bufferedImage, "png", outputFile)
+        FileOutputStream(outputFile).use { out ->
+            bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
+        }
+        bitmap.recycle()
         android.util.Log.i("QrExport", "✓ QR code saved to: ${outputFile.absolutePath}")
     } catch (e: Exception) {
         android.util.Log.e("QrExport", "❌ Export failed: ${e.message}", e)
@@ -151,27 +163,30 @@ private fun embeddedImageFor(
     }
 }
 
-private fun sg.qrstudio.qr.Contrast.Rgb.toAwtColor(): java.awt.Color =
-    java.awt.Color((r * 255).toInt(), (g * 255).toInt(), (b * 255).toInt())
+private fun sg.qrstudio.qr.Contrast.Rgb.toAndroidColor(): Int =
+    android.graphics.Color.rgb((r * 255).toInt(), (g * 255).toInt(), (b * 255).toInt())
 
-/** Mirrors QrCanvas.kt's drawModule: same three shapes, same corner/inset ratios. */
-private fun drawModuleAwt(
-    graphics: java.awt.Graphics2D,
+/** Mirrors QrSvgRenderer's svgModule: same three shapes, same corner/inset ratios. */
+private fun drawModuleAndroid(
+    canvas: Canvas,
+    paint: Paint,
     x: Int,
     y: Int,
     size: Int,
     shape: sg.qrstudio.qr.ModuleShape,
 ) {
     when (shape) {
-        sg.qrstudio.qr.ModuleShape.SQUARE -> graphics.fillRect(x, y, size, size)
+        sg.qrstudio.qr.ModuleShape.SQUARE -> canvas.drawRect(x.toFloat(), y.toFloat(), (x + size).toFloat(), (y + size).toFloat(), paint)
         sg.qrstudio.qr.ModuleShape.ROUNDED -> {
-            val arc = (size * 0.6).toInt()
-            graphics.fillRoundRect(x, y, size, size, arc, arc)
+            val r = size * 0.3f
+            val rect = RectF(x.toFloat(), y.toFloat(), (x + size).toFloat(), (y + size).toFloat())
+            canvas.drawRoundRect(rect, r, r, paint)
         }
         sg.qrstudio.qr.ModuleShape.DOT -> {
-            val radius = (size / 1.1).toInt()
-            val offset = (size - radius) / 2
-            graphics.fillOval(x + offset, y + offset, radius, radius)
+            val cx = x + size / 2f
+            val cy = y + size / 2f
+            val radius = size / 2.2f
+            canvas.drawCircle(cx, cy, radius, paint)
         }
     }
 }
@@ -191,15 +206,33 @@ private fun isWithinLogoArea(
         cy in (logoTop - padding)..(logoTop + logoSize + padding)
 }
 
+/** Same aspect-preserving fit-and-centre math as QrSvgRenderer's embeddedLogoMarkup. */
 private fun drawLogoImageOnCanvas(
-    graphics: java.awt.Graphics2D,
+    canvas: Canvas,
     image: androidx.compose.ui.graphics.ImageBitmap,
     left: Int,
     top: Int,
     size: Int,
     shape: sg.qrstudio.qr.LogoShape,
 ) {
-    // PNG logo image rendering uses BufferedImage on Android via platform AWT compatibility
-    // This is handled by the parent exportQrAsPng function's use of java.awt.image.BufferedImage
-    // For full image support, consider extracting pixels and reconstructing the image
+    val padding = 5
+    val available = size - padding * 2
+    val bitmap = image.asAndroidBitmap()
+    val aspect = bitmap.width.toFloat() / bitmap.height
+    val (scaledWidth, scaledHeight) =
+        if (aspect > 1f) {
+            available to (available / aspect).toInt()
+        } else {
+            (available * aspect).toInt() to available
+        }
+    val imageLeft = left + padding + (available - scaledWidth) / 2
+    val imageTop = top + padding + (available - scaledHeight) / 2
+    val dest =
+        RectF(
+            imageLeft.toFloat(),
+            imageTop.toFloat(),
+            (imageLeft + scaledWidth).toFloat(),
+            (imageTop + scaledHeight).toFloat(),
+        )
+    canvas.drawBitmap(bitmap, null, dest, Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG))
 }
