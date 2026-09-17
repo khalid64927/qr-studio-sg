@@ -41,13 +41,164 @@ SGQR label from your bank or acquirer rather than self-generating one.
 ```
 payload/      EMVCo TLV builder, CRC-16, validators, parser              — pure Kotlin
 qr/           QR encoder, module matrix, mask selection, appearance      — pure Kotlin
-              (colour contrast, module/eye shapes, logo backing plate)
-composeApp/   Compose Multiplatform UI, renderer, live preview, branding
+              (colour contrast, module/eye shapes, logo backing plate, QrSvgRenderer)
+ui/           Every screen, component and the design system itself — Compose
+              Multiplatform, themed with the same Adyen-inspired palette as demo/web
               (Android, iOS, desktop, web/Wasm; export not yet built)
+composeApp/   Per-platform entry points only (MainActivity, main(), MainViewController)
+              — a thin shell that calls ui/'s App() and nothing else, so a
+              platform-specific look and feel is a change confined to ui/
 ```
 
-`payload/` and `qr/` are standalone Gradle modules with no dependency on the app. Either
-can be extracted and published as a library without touching anything else.
+`payload/` and `qr/` are standalone Gradle modules with no dependency on the app or on
+Compose. Either can be extracted and published as a library without touching anything
+else — see [Publishing](#publishing) for exactly that, to Android/JVM, iOS/SPM and npm.
+
+## Publishing
+
+`payload/` (the EMVCo/PayNow builder) and `qr/` (the encoder and module matrix) are
+plain Kotlin with no Compose or UI dependency, so they can be consumed by a **native-UI
+app** — SwiftUI, Jetpack Views, a plain Node/React backend — that doesn't want this
+repo's Compose Multiplatform renderer at all. They publish to three registries:
+
+| Platform | Artifact | Registry | Consumer |
+|---|---|---|---|
+| Android | AAR | GitHub Packages (Maven) | Gradle, `implementation("sg.qrstudio:payload-android:<version>")` |
+| JVM / desktop | plain jar | GitHub Packages (Maven) | any JVM build tool |
+| iOS | XCFramework | GitHub Release asset, referenced from `Package.swift` | Swift Package Manager |
+| Web / Node | npm package with `.d.ts` | GitHub Packages (npm) | `npm install @khalid64927/qr-studio-sg-payload` |
+
+Not published: `:ui` (composables — see below) and Kotlin/Wasm (this repo's own web
+build uses it internally; it isn't part of the public library surface).
+
+### Why iOS and web needed a small facade, and Android/JVM didn't
+
+`PayNowConfig.expiry` is a `kotlinx-datetime LocalDate`, and `PayNowPayloadBuilder.build`
+returns the sealed interface `PayloadResult` — both compile straight through to a JVM/AAR
+consumer, who reads ordinary Kotlin/Java classes either way. Neither survives the trip to
+JavaScript: `@JsExport` cannot describe a third-party `LocalDate` to TypeScript, and does
+not support sealed types at all. So `payload/src/jsMain/kotlin/…/js/PayNowPayloadJs.kt`
+and `qr/src/jsMain/kotlin/…/js/QrEncoderJs.kt` exist purely to translate — ISO date
+strings in, a flat result class with `success`/`errors`/`warnings` fields out — and they
+compile *only* for the `js(IR)` target. (`:qr`'s public API has no such problem — no
+`LocalDate`, no sealed types — but it still needed a `jsMain` facade for an unrelated
+reason: Kotlin/Wasm, one of `:qr`'s other targets, currently only supports `@JsExport` on
+top-level functions, not classes or enums, so annotating `ModuleMatrix`/`ErrorCorrection`
+directly in `commonMain` would have broken the wasmJs compile this app's own web build
+depends on.) These facades are the actual npm API — see their generated `.d.ts` after
+running the build below.
+
+### Building the artifacts locally
+
+```bash
+# Android AAR + JVM jar, into your local Maven cache (~/.m2)
+./gradlew :payload:publishAndroidReleasePublicationToMavenLocal :payload:publishJvmPublicationToMavenLocal
+./gradlew :qr:publishAndroidReleasePublicationToMavenLocal :qr:publishJvmPublicationToMavenLocal
+
+# iOS XCFramework
+./gradlew :payload:assemblePayNowPayloadKitReleaseXCFramework
+./gradlew :qr:assembleQrStudioQrKitReleaseXCFramework
+# -> payload/build/XCFrameworks/release/PayNowPayloadKit.xcframework
+# -> qr/build/XCFrameworks/release/QrStudioQrKit.xcframework
+
+# npm package (inspect build/dist/js/productionLibrary/ for the .d.ts and package.json)
+./gradlew :payload:jsNodeProductionLibraryDistribution
+./gradlew :qr:jsNodeProductionLibraryDistribution
+```
+
+### Native-UI demos
+
+[`demo/`](demo/) proves the point of publishing these two modules at all: a skeleton
+native-Swift app (`demo/ios/`) and a real Next.js app (`demo/web/`, styled in an
+Adyen-inspired fintech design) each build a PayNow payload and encode it into a QR module
+matrix, using nothing but the locally-built library artifacts above — no Compose
+Multiplatform, no `:ui`, no `:composeApp`. The web app's Branding (logo) and Appearance
+(colours, module/eye shape, the FR-402 contrast gate) render through `:qr`'s
+`QrSvgRenderer` — the *same* renderer every Compose platform's own SVG export now calls,
+after it turned out each of the four platform actuals carried its own ~80-line copy of
+the same algorithm (see `qr/src/commonMain/kotlin/sg/qrstudio/qr/QrSvgRenderer.kt`'s
+KDoc). Consolidating it surfaced and fixed two real bugs along the way: iOS's picked
+logo image was never actually decoded (`decodeImageBytes` was a `TODO` returning `null`
+unconditionally — Skia/skiko, already linked in for the Compose preview, needed no
+platform interop at all), and Android's SVG logo-image embedding was a silent no-op
+(`drawLogoImageSvg` was an empty function body). `ui/`'s own theme
+(`QrStudioTheme.kt`) uses the same Adyen-inspired palette as `demo/web` too, verified in
+a real browser against the wasmJs build (screenshot in `demo/screenshots/`) — one
+visual language across every platform, not a coincidence of two unrelated colour
+choices. See [`demo/screenshots/`](demo/screenshots/) for a few customizations,
+captured live from a real browser session. Both demos were actually built and *run*
+(not just compiled) against real inputs, producing byte-for-byte identical payloads on
+both platforms; `demo/README.md` has the exact commands and what was verified. Android
+has no separate demo — `composeApp` already depends on `:ui` (and transitively
+`:payload`/`:qr`), which is a real, continuously-tested consumer already (see
+`demo/README.md` for why that's the right call rather than standing up a redundant one).
+
+### Publishing a release
+
+`.github/workflows/publish.yml` runs on a `vX.Y.Z` tag push (or manually via
+`workflow_dispatch` for a dry run) and publishes all three registries in parallel jobs
+— the Maven and npm steps live in `.github/workflows/publish-artifacts.yml`, a reusable
+`workflow_call` workflow shared with `publish-snapshot.yml` below, so that publish logic
+exists in exactly one place; the XCFramework/SPM job stays in `publish.yml` only, since
+snapshots skip it. It **never pushes a commit back to this repository** — `main` only
+accepts changes through a reviewed PR (branch protection), so the iOS job prints the XCFramework
+checksums it computed to the workflow's job summary instead of writing them anywhere,
+and a maintainer pastes them into `Package.swift` and opens a PR. Until that happens
+after the first release, `Package.swift`'s checksums are placeholders and it will not
+resolve.
+
+Credentials: the Maven and npm jobs authenticate with the workflow's own
+`GITHUB_TOKEN` — no secrets to configure. Publishing manually from a machine needs a
+GitHub personal access token with `write:packages`, set as `gpr.user`/`gpr.token` in
+`~/.gradle/gradle.properties` (never in this repo — see `config/publishing.gradle.kts`).
+
+**Consuming a published package is not the same as publishing one.** GitHub Packages
+requires authentication for every read, even of a public repository's packages — a
+Gradle consumer needs `read:packages` credentials configured the same way, and an npm
+consumer needs an `.npmrc` pointing `@khalid64927:registry` at
+`https://npm.pkg.github.com` with a `read:packages` token. If that friction matters more
+than avoiding a second account, swap `config/publishing.gradle.kts`'s repository block
+for Maven Central (Sonatype's Central Portal) and the npm job's registry for
+`registry.npmjs.org` — both fully public, no auth to consume, at the cost of an
+account/namespace-verification step this repo hasn't done.
+
+### Publishing a snapshot
+
+`.github/workflows/publish-snapshot.yml` publishes Maven (AAR + JVM jar) and npm only —
+**no SPM/XCFramework** — from any branch except `main`. Use this when a downstream
+consumer needs a branch's in-progress changes before it's merged (e.g. testing an iOS
+build against today's `:payload` changes), not routinely.
+
+**Manual-only, deliberately.** It has no `push` trigger — only `workflow_dispatch`
+(Actions tab → *Publish Snapshot* → *Run workflow*, on the branch you want). An
+automatic snapshot on every push would mean a new GitHub Packages version for every WIP
+commit on every branch, with no way to tell which ones matter; this way a snapshot only
+exists when someone actually asked for one. SPM is skipped for the same reason plus a
+mechanical one — it resolves via git tags or a GitHub Release, both meant to be stable
+references, and a Release per snapshot would just be more of the same clutter.
+
+**Versioning**: `version.properties` at the repo root holds the default
+`major`/`minor`/`patch` (the same numbers a real release under `publish.yml` would use).
+A snapshot run reads those and appends the current commit's short SHA plus `-SNAPSHOT`:
+
+```
+version.properties: major=0 minor=1 patch=0
+→ published version: 0.1.0-a3f9c21-SNAPSHOT
+```
+
+The short SHA (not a random string) is what makes each snapshot traceable back to the
+exact commit it was built from, and — since GitHub Packages' Maven registry doesn't
+reliably support overwriting an existing version — is what keeps repeated snapshots on
+the same branch from colliding.
+
+The `workflow_dispatch` form has optional `major`/`minor`/`patch` override fields, blank
+by default (meaning "use `version.properties` as-is"). Filling one in does two things:
+uses it for that snapshot's version, **and** commits the new `major`/`minor`/`patch`
+back to `version.properties` on the branch the workflow ran on (`[skip ci]`, via the
+workflow's own `GITHUB_TOKEN` — this is the one publishing workflow that *does* push a
+commit back, unlike `publish.yml`, because branch protection only applies to `main` and
+a snapshot never runs there). That becomes the new default for the next snapshot run on
+that branch, so you don't have to keep re-entering an override once you've bumped it.
 
 ## The payload core
 
@@ -81,7 +232,7 @@ Run them:
 ./gradlew :payload:jvmTest                 # includes the TC-04 cross-check
 ./gradlew :payload:iosSimulatorArm64Test   # the same suite on Kotlin/Native
 ./gradlew :qr:jvmTest                      # encode -> render -> decode, via ZXing
-./gradlew :composeApp:desktopTest          # renders the real composable, then decodes it
+./gradlew :ui:desktopTest          # renders the real composable, then decodes it
 ./gradlew :composeApp:run                  # the desktop app, with live preview
 ```
 
@@ -151,10 +302,10 @@ testing.
 - [x] Compose renderer and live preview, verified by decoding the rendered output
 - [x] Input UI with validation surfacing (Pay To, Payment sections)
 - [x] Appearance and colour-contrast safety (WCAG 2.x verdicts, FR-402 export gate)
-- [x] Branding logo composition (size 8–30%, shapes, backing plate, §9.3 image picker deferred)
+- [x] Branding logo composition (size 8–30%, shapes, backing plate)
+- [x] Image picker integration for real logo uploads (§9.3) — FileKit on Android/desktop/iOS, a native `<input type="file">` on web
 - [ ] PNG and SVG export with platform actuals
 - [ ] Export self-verification (decode-and-compare before enabling export)
-- [ ] Image picker integration for real logo uploads (§9.3, Android/iOS/desktop/web)
 - [ ] Release workflow, web deployment
 - [ ] **Manual bank verification** — blocking for release
 
@@ -178,8 +329,8 @@ Requires **JDK 17+**. Android SDK is needed for Android targets; Xcode for iOS.
 ./gradlew :qr:androidUnitTest                # Android unit tests
 
 # Compose app tests (UI and integration)
-./gradlew :composeApp:desktopTest            # Desktop: renders the real composable, decodes it
-./gradlew :composeApp:testDebugUnitTest      # Android unit tests
+./gradlew :ui:desktopTest            # Desktop: renders the real composable, decodes it
+./gradlew :ui:testDebugUnitTest      # Android unit tests
 ```
 
 ### Desktop (Compose Desktop / JVM)
@@ -192,7 +343,7 @@ Requires **JDK 17+**. Android SDK is needed for Android targets; Xcode for iOS.
 ./gradlew :composeApp:packageDistributionForCurrentOS
 
 # Run tests
-./gradlew :composeApp:desktopTest
+./gradlew :ui:desktopTest
 ```
 
 The desktop app launches with:
@@ -217,12 +368,12 @@ The desktop app launches with:
 ./gradlew :composeApp:run  # Also works for Android when a device is connected
 
 # Run tests
-./gradlew :composeApp:testDebugUnitTest
+./gradlew :ui:testDebugUnitTest
 ```
 
 The Android app:
 - Responsive layout (single column on phones, split view on tablets)
-- All Branding and Appearance features (image picker button deferred to §9.3)
+- All Branding and Appearance features, including picking a real logo image (FileKit)
 - Offline: no network calls, everything runs on-device
 
 ### iOS
@@ -280,9 +431,10 @@ python3 -m http.server 8000
 - **Logo enabled:** toggle to add a centre logo
 - **Logo size:** 8–30% of QR width (warning above 25%)
 - **Logo shape:** Square, Rounded, or Circle backing plate
-- **Image picker:** placeholder button, ready for §9.3 ImagePicker integration
-  - Currently uses a stand-in mark so size/shape/placement mechanics are real
-  - Real image picker will be wired when platform integrations (FileDialog, etc.) are added
+- **Image picker:** picks a real image on every platform — FileKit's native picker on
+  Android/desktop/iOS, a real `<input type="file">` on web — and draws it scaled and
+  centred into the logo area. Before anything is picked, a stand-in mark shows so the
+  size/shape/placement mechanics are visible immediately.
 
 #### Appearance (collapsed by default)
 - **Foreground colour:** RGB sliders for the QR code (black by default)

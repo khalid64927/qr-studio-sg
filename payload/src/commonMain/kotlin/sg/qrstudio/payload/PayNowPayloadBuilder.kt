@@ -96,6 +96,7 @@ object PayNowPayloadBuilder {
                             validation.warnings,
                         )
 
+                ProxyType.NRIC -> Validation.normaliseNric(config.proxyValue)
                 ProxyType.UEN -> Validation.normaliseUen(config.proxyValue)
             }
 
@@ -250,6 +251,7 @@ object PayNowPayloadBuilder {
                 "+65 ${digits.take(4)} ${digits.drop(4)}"
             }
 
+            ProxyType.NRIC -> normalised
             ProxyType.UEN -> normalised
         }
 }
