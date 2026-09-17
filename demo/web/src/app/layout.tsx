@@ -13,9 +13,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "PayNow QR Demo",
+  title: "QR Studio SG — PayNow QR Code Generator",
   description:
-    "Native-JS demo of @khalid64927/qr-studio-sg-payload and qr-studio-sg-qr — no Compose Multiplatform.",
+    "Generate a PayNow QR code with your own colours, module style, and logo. Free, no sign-up, nothing leaves your session unnecessarily.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

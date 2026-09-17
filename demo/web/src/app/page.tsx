@@ -23,10 +23,10 @@ const PREVIEW_SIZE = 280;
 type ModuleShapeValue = "SQUARE" | "ROUNDED" | "DOT";
 type LogoShapeValue = "SQUARE" | "ROUNDED" | "CIRCLE";
 
-const PROXY_TYPES: { value: ProxyTypeInput; label: string; placeholder: string; example: string }[] = [
-  { value: "MOBILE", label: "Mobile number", placeholder: "9123 4567", example: "e.g. 9123 4567" },
-  { value: "NRIC", label: "NRIC/FIN", placeholder: "S1234567D", example: "e.g. S1234567D" },
-  { value: "UEN", label: "UEN", placeholder: "201403121W", example: "e.g. 201403121W" },
+const PROXY_TYPES: { value: ProxyTypeInput; label: string; prompt: string; placeholder: string; example: string }[] = [
+  { value: "MOBILE", label: "Mobile number", prompt: "a mobile number", placeholder: "9123 4567", example: "e.g. 9123 4567" },
+  { value: "NRIC", label: "NRIC/FIN", prompt: "an NRIC or FIN", placeholder: "S1234567D", example: "e.g. S1234567D" },
+  { value: "UEN", label: "UEN", prompt: "a UEN", placeholder: "201403121W", example: "e.g. 201403121W" },
 ];
 
 const MODULE_SHAPES: { value: ModuleShapeValue; label: string }[] = [
@@ -68,10 +68,10 @@ function downloadBlob(blob: Blob, fileName: string) {
 export default function Home() {
   const [proxyType, setProxyType] = useState<ProxyTypeInput>("MOBILE");
   const [proxyValue, setProxyValue] = useState("");
-  const [merchantName, setMerchantName] = useState("Demo Merchant");
-  const [amount, setAmount] = useState("25.50");
+  const [merchantName, setMerchantName] = useState("");
+  const [amount, setAmount] = useState("");
   const [amountEditable, setAmountEditable] = useState(false);
-  const [reference, setReference] = useState("INV-DEMO-001");
+  const [reference, setReference] = useState("");
 
   const [foreground, setForeground] = useState<RgbInput>(BLACK);
   const [background, setBackground] = useState<RgbInput>(WHITE);
@@ -247,11 +247,8 @@ export default function Home() {
       <header className="mb-10 flex items-center gap-3">
         <div className="h-8 w-2 rounded-full bg-accent" />
         <div>
-          <h1 className="text-xl font-semibold tracking-tight">PayNow QR Demo</h1>
-          <p className="text-sm text-muted">
-            Native JS — <code className="font-mono text-xs">@khalid64927/qr-studio-sg-payload</code>{" "}
-            + <code className="font-mono text-xs">qr-studio-sg-qr</code>, zero Compose Multiplatform.
-          </p>
+          <h1 className="text-xl font-semibold tracking-tight">QR Studio SG</h1>
+          <p className="text-sm text-muted">Create a PayNow QR code with your own colours, shapes, and logo.</p>
         </div>
       </header>
 
@@ -277,6 +274,13 @@ export default function Home() {
                 error={result?.errors.length ? result.errors[0] : undefined}
               />
               <p className="mt-1.5 text-xs text-muted">{activeProxy.example}</p>
+              {proxyType === "NRIC" && (
+                <p className="mt-1.5 text-xs text-warning">
+                  Heads up: in testing, some bank apps (e.g. DBS/POSB, PayLah!) don&apos;t scan an
+                  NRIC/FIN PayNow code — they support NRIC transfers by manual entry only. Confirm with
+                  your recipient before relying on this.
+                </p>
+              )}
             </Field>
 
             <Field label="Name payers will see">
@@ -406,7 +410,7 @@ export default function Home() {
               {!showQr ? (
                 <p className="px-6 text-center text-sm text-muted">
                   {proxyValue.trim() === ""
-                    ? `Enter a ${activeProxy.label.toLowerCase()} to see the QR code`
+                    ? `Enter ${activeProxy.prompt} to see the QR code`
                     : pending
                       ? "Generating…"
                       : "Fix the highlighted fields to see the QR code"}
@@ -454,6 +458,21 @@ export default function Home() {
           </div>
         </div>
       </div>
+
+      <footer className="mt-12 space-y-2 border-t border-border pt-6 text-xs text-muted">
+        <p>
+          QR Studio SG is an independent tool, <strong className="font-medium">not affiliated with,
+          endorsed by, or connected to</strong> any bank, the Association of Banks in Singapore (ABS),
+          IMDA, or MAS. Double-check the recipient details before sharing or using any code you
+          generate here — you&apos;re responsible for that, not this site.
+        </p>
+        <p>
+          Codes generated here are PayNow-scheme codes, not &quot;SGQR&quot; labels — a real SGQR
+          label requires acquirer registration and the printed multi-scheme mark. If you&apos;re a
+          business displaying a payment QR at a physical counter, get an SGQR label from your bank or
+          acquirer instead of using one generated here.
+        </p>
+      </footer>
     </div>
   );
 }
