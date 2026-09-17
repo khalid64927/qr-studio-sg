@@ -36,6 +36,20 @@ jobs:
         with:
           name: lint-reports
           path: '*/build/reports/lint-results-*.html'
+      # Without this, every run re-downloads the entire NVD CVE database from scratch
+      # (build.gradle.kts pins dependencyCheck's data directory to a fixed,
+      # project-relative path specifically so it's cacheable here) — a cold sync can take
+      # 30-90+ minutes even with an API key, since NVD's own rate limits apply regardless.
+      # Restored by a prefix match so even a stale cache still turns a full download into
+      # a fast incremental update; saved fresh under today's date so it stays current.
+      - id: date
+        run: echo "date=$(date +%Y-%m-%d)" >> "$GITHUB_OUTPUT"
+      - name: Cache dependency-check NVD database
+        uses: actions/cache@v4
+        with:
+          path: .dependency-check-data
+          key: dependency-check-data-${{ steps.date.outputs.date }}
+          restore-keys: dependency-check-data-
       # NVD_API_KEY is optional but strongly recommended: without it the NVD data feed
       # update is rate-limited hard enough to make this step flaky/slow. Get one free at
       # https://nvd.nist.gov/developers/request-an-api-key and add it as a repo secret.

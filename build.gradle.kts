@@ -35,6 +35,13 @@ dependencyCheck {
     failBuildOnCVSS = 7.0f
     suppressionFile = "$projectDir/config/dependency-check-suppressions.xml"
     formats = listOf("HTML", "JSON")
+    // A fixed, project-relative path (not the default under GRADLE_USER_HOME) so CI can
+    // cache it directly — see ci.yml's dependency-check-data cache step. Without this,
+    // every CI run re-downloads the entire NVD CVE database from scratch, which can take
+    // 30-90+ minutes even with an API key (NVD's own rate limits apply regardless).
+    data {
+        directory = "$rootDir/.dependency-check-data"
+    }
     analyzers {
         // This is a Kotlin/Compose project with no .NET, Node, or native-assembly
         // dependencies anywhere in the tree; leaving these on just burns scan time

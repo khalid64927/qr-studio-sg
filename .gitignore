@@ -37,3 +37,4 @@ demo/ios/.build/
 demo/ios/.swiftpm/
 demo/web/.local-packages/
 demo/web/.next/
+.dependency-check-data/
