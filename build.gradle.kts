@@ -35,6 +35,23 @@ dependencyCheck {
     failBuildOnCVSS = 7.0f
     suppressionFile = "$projectDir/config/dependency-check-suppressions.xml"
     formats = listOf("HTML", "JSON")
+    // A fixed, project-relative path (not the default under GRADLE_USER_HOME) so CI can
+    // cache it directly — see ci.yml's dependency-check-data cache step. Without this,
+    // every CI run re-downloads the entire NVD CVE database from scratch, which can take
+    // 30-90+ minutes even with an API key (NVD's own rate limits apply regardless).
+    data {
+        directory = "$rootDir/.dependency-check-data"
+    }
+    // The NVD_API_KEY env var (set in ci.yml from the repo's NVD_API_KEY secret) isn't
+    // read automatically by dependency-check-core or this plugin — grepping both jars
+    // turns up no reference to that name anywhere; it only exists once wired explicitly
+    // into this nvd.apiKey property. Without this block, dependency-check silently falls
+    // back to unauthenticated (heavily rate-limited) NVD access regardless of whether the
+    // secret is set, which is what was producing "An NVD API Key was not provided" even
+    // with a real secret configured.
+    nvd {
+        apiKey = System.getenv("NVD_API_KEY")
+    }
     analyzers {
         // This is a Kotlin/Compose project with no .NET, Node, or native-assembly
         // dependencies anywhere in the tree; leaving these on just burns scan time

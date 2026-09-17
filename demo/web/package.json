@@ -10,8 +10,8 @@
   },
   "dependencies": {
     "@js-joda/core": "^3.2.0",
-    "@khalid64927/qr-studio-sg-payload": "file:.local-packages/khalid64927-qr-studio-sg-payload-0.1.0.tgz",
-    "@khalid64927/qr-studio-sg-qr": "file:.local-packages/khalid64927-qr-studio-sg-qr-0.1.0.tgz",
+    "@khalid64927/qr-studio-sg-payload": "0.1.0-484ca46-SNAPSHOT",
+    "@khalid64927/qr-studio-sg-qr": "0.1.0-484ca46-SNAPSHOT",
     "next": "16.3.5",
     "react": "19.2.8",
     "react-dom": "19.2.8"

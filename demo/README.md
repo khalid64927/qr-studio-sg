@@ -234,23 +234,38 @@ iOS demo, [`../screenshots/`](../screenshots/):
 | [![NRIC/FIN proxy type](../screenshots/paynow-qr-nric.jpg)](../screenshots/paynow-qr-nric.jpg) |
 | NRIC/FIN selected as the proxy type — see the caveat above about whether current bank apps actually scan this |
 
+`package.json`'s committed `@khalid64927/qr-studio-sg-*` versions point at a real
+published GitHub Packages release (see the root README's Publishing section), so a
+plain install works with no Gradle/Kotlin toolchain at all:
+
 ```bash
 cd demo/web
-./setup-local-packages.sh   # builds :payload/:qr, packs and installs them locally
+# .npmrc needs NPM_TOKEN — a GitHub PAT with read:packages — in your shell env,
+# since GitHub Packages requires auth even to install a public package.
+npm install
 npm run dev                 # http://localhost:3000
 # or: npm run build && npm run start
 ```
 
-`setup-local-packages.sh` runs the same `jsNodeProductionLibraryDistribution` Gradle
-tasks as the other demos, then `npm pack`s each output directory into a real `.tgz` and
-installs *that* — deliberately not a `file:`-directory dependency. npm symlinks a
-`file:`-directory dependency, and Node resolves `require()` inside a symlinked package
-relative to its *real* path, which is outside this app's `node_modules` entirely; a
-`file:`-*tarball* dependency, like a registry install, extracts a real copy instead, so
-none of that applies here. (The earlier CLI-only version of this demo used a plain `file:`
-directory + `node --preserve-symlinks` to work around exactly this — a real Next.js build
-has no equivalent flag, which is what prompted switching to tarballs.) Re-run the script
-after any change to `:payload` or `:qr`.
+**Testing an unreleased `:payload`/`:qr` change locally**, before it's published, still
+works via the local-tarball path:
+
+```bash
+./setup-local-packages.sh   # builds :payload/:qr, packs and installs them locally
+```
+
+This runs the same `jsNodeProductionLibraryDistribution` Gradle tasks as the other
+demos, then `npm pack`s each output directory into a real `.tgz` and installs *that* —
+deliberately not a `file:`-directory dependency. npm symlinks a `file:`-directory
+dependency, and Node resolves `require()` inside a symlinked package relative to its
+*real* path, which is outside this app's `node_modules` entirely; a `file:`-*tarball*
+dependency, like a registry install, extracts a real copy instead, so none of that
+applies here. (The earlier CLI-only version of this demo used a plain `file:` directory
++ `node --preserve-symlinks` to work around exactly this — a real Next.js build has no
+equivalent flag, which is what prompted switching to tarballs.) Re-run the script after
+any change to `:payload` or `:qr` — and revert `package.json`/`package-lock.json`
+afterwards (`git checkout -- package.json`) before committing, since the script rewrites
+the dependency back to a local `file:` path.
 
 Verified with a real browser session against `npm run build && npm run start`: typing a
 mobile number produces a live QR render, the raw EMVCo payload, and the normalised proxy

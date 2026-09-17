@@ -200,6 +200,30 @@ commit back, unlike `publish.yml`, because branch protection only applies to `ma
 a snapshot never runs there). That becomes the new default for the next snapshot run on
 that branch, so you don't have to keep re-entering an override once you've bumped it.
 
+### Deploying `demo/web`
+
+`demo/web` uses Next.js Server Actions (`actions.ts`'s `"use server"` functions run the
+payload/QR logic — see `demo/README.md`'s Web section), which need a real Node.js
+server. That rules out GitHub Pages (static-only, used for the Compose wasmJs build —
+see `.github/workflows/deploy-web.yml`) as a host for this app. It's deployed to
+**Vercel** instead (free Hobby tier, zero-config for Next.js) via Vercel's own GitHub
+integration — connect the repo at vercel.com, set the project's **Root Directory** to
+`demo/web`, and every push auto-deploys with no workflow file needed here.
+
+Vercel's build machine has no JDK/Gradle, so it can't run `setup-local-packages.sh` —
+`demo/web/package.json` depends on the real published `@khalid64927/qr-studio-sg-*`
+version from GitHub Packages instead (see "Publishing a release"/"Publishing a
+snapshot" above for how that version gets there). Since GitHub Packages requires auth
+even to install a public package, the Vercel project needs one environment variable:
+
+- **`NPM_TOKEN`** — a GitHub PAT with `read:packages`, used by `demo/web/.npmrc`
+  (`//npm.pkg.github.com/:_authToken=${NPM_TOKEN}`) during `npm install`.
+
+To bump `demo/web` onto a newer `:payload`/`:qr` release, publish a new version (via
+`publish.yml` or `publish-snapshot.yml`) and update the two `@khalid64927/qr-studio-sg-*`
+versions in `demo/web/package.json` — nothing else needs to change, since Vercel just
+runs `npm install && npm run build` the same as any other Next.js project.
+
 ## The payload core
 
 The PayNow merchant account template is **tag 26**, with expiry at subtag `04` and the
