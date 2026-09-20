@@ -27,6 +27,13 @@ const PROXY_TYPES: { value: ProxyTypeInput; label: string; prompt: string; place
   { value: "MOBILE", label: "Mobile number", prompt: "a mobile number", placeholder: "9123 4567", example: "e.g. 9123 4567" },
   { value: "NRIC", label: "NRIC/FIN", prompt: "an NRIC or FIN", placeholder: "S1234567D", example: "e.g. S1234567D" },
   { value: "UEN", label: "UEN", prompt: "a UEN", placeholder: "201403121W", example: "e.g. 201403121W" },
+  {
+    value: "VPA",
+    label: "VPA / e-wallet",
+    prompt: "a Virtual Payment Address",
+    placeholder: "+6591234567#GRAB",
+    example: "e.g. +6591234567#GRAB — a mobile number or UEN linked to an e-wallet",
+  },
 ];
 
 const MODULE_SHAPES: { value: ModuleShapeValue; label: string }[] = [

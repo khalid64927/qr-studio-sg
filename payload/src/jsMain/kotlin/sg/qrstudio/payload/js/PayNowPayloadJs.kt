@@ -46,7 +46,8 @@ class BuildPayNowQrResult internal constructor(
 /**
  * Builds a PayNow EMVCo payload string.
  *
- * @param proxyType one of `"MOBILE"`, `"NRIC"`, `"UEN"` (case-insensitive).
+ * @param proxyType one of `"MOBILE"`, `"NRIC"`, `"UEN"`, `"VPA"` (case-insensitive). A VPA
+ *   value is `<mobile-or-UEN>#<provider>`, e.g. `"+6591234567#GRAB"`.
  * @param expiry ISO-8601 date (`"2026-12-31"`), or `null`/omitted for the library's
  *   default of today + 5 years.
  * @param today ISO-8601 date to treat as "today" for expiry validation. Omit to use the
@@ -77,7 +78,7 @@ fun buildPayNowQr(
                 reference = null,
                 merchantName = null,
                 pointOfInitiation = null,
-                errors = arrayOf("Unknown proxy type '$proxyType'. Use MOBILE, NRIC or UEN."),
+                errors = arrayOf("Unknown proxy type '$proxyType'. Use MOBILE, NRIC, UEN or VPA."),
                 warnings = emptyArray(),
             )
 

@@ -118,6 +118,25 @@ class PayNowPayloadBuilderTest {
     }
 
     @Test
+    fun `a VPA is normalised with proxy type 3 and round-trips through the detector`() {
+        val payload = succeed(PayNowConfig(ProxyType.VPA, "9123 4567 # grab"))
+        assertTrue(EmvTlvParser.verifyCrc(payload.raw))
+        assertEquals("+6591234567#GRAB", payload.normalisedProxy)
+        assertEquals("+65 9123 4567#GRAB", payload.proxyDisplay)
+        val detected = PayNowDetector.detect(payload.raw)
+        assertEquals(ProxyType.VPA, detected?.proxyType)
+        assertEquals("+6591234567#GRAB", detected?.proxyValue)
+        assertTrue(payload.raw.contains("0101" + "3"), "Proxy type 3 must be present at 26.01")
+    }
+
+    @Test
+    fun `a UEN-based VPA displays plainly, without mobile-style grouping`() {
+        val payload = succeed(PayNowConfig(ProxyType.VPA, "201403121w#wise"))
+        assertEquals("201403121W#WISE", payload.normalisedProxy)
+        assertEquals("201403121W#WISE", payload.proxyDisplay)
+    }
+
+    @Test
     fun `AC-03 an amount of 500 is encoded as 5406500_00`() {
         val payload = succeed(PayNowConfig(ProxyType.MOBILE, "91234567", amount = "500"))
         assertTrue(payload.raw.contains("5406500.00"), "Expected 5406500.00 in ${payload.raw}")

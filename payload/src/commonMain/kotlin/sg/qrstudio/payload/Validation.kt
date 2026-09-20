@@ -18,6 +18,9 @@ enum class IssueCode {
     UEN_UNRECOGNISED_PATTERN,
     NRIC_EMPTY,
     NRIC_BAD_FORMAT,
+    VPA_EMPTY,
+    VPA_BAD_FORMAT,
+    VPA_UNRECOGNISED_PROVIDER,
     AMOUNT_NOT_A_NUMBER,
     AMOUNT_TOO_SMALL,
     AMOUNT_TOO_LARGE,
@@ -75,6 +78,13 @@ object PayloadStrings {
             IssueCode.NRIC_BAD_FORMAT ->
                 "An NRIC or FIN starts with S, T, F or G, followed by 7 digits and a letter, " +
                     "for example S1234567D."
+            IssueCode.VPA_EMPTY -> "Enter the Virtual Payment Address, for example +6591234567#GRAB."
+            IssueCode.VPA_BAD_FORMAT ->
+                "A Virtual Payment Address is a mobile number or UEN, followed by # and the " +
+                    "wallet's code, for example +6591234567#GRAB."
+            IssueCode.VPA_UNRECOGNISED_PROVIDER ->
+                "This wallet code isn't one this tool recognises (GRAB, DASH, XNAP or WISE). " +
+                    "Double-check it before you share the code."
             IssueCode.AMOUNT_NOT_A_NUMBER -> "Enter the amount as a number, for example 25.50."
             IssueCode.AMOUNT_TOO_SMALL -> "The smallest amount you can request is 0.01."
             IssueCode.AMOUNT_TOO_LARGE -> "The largest amount you can request is 999999.99."
@@ -106,6 +116,17 @@ object Validation {
     private val NRIC = Regex("^[STFG]\\d{7}[A-Z]$")
     private val SAFE_REFERENCE = Regex("^[A-Za-z0-9_-]+$") // FR-114
 
+    /** The wallet-code half of a VPA, e.g. "GRAB" in "+6591234567#GRAB". */
+    private val VPA_PROVIDER_CODE = Regex("^[A-Z]{4}$")
+
+    /**
+     * Providers with a confirmed PayNow VPA integration. Not exhaustive by design — like
+     * UEN formats below (`IssueCode.UEN_UNRECOGNISED_PATTERN`), this list can only grow
+     * as more non-bank financial institutions onboard, so an unrecognised-but-well-formed
+     * code warns rather than blocks.
+     */
+    private val KNOWN_VPA_PROVIDERS = setOf("GRAB", "DASH", "XNAP", "WISE")
+
     /** Printable ASCII, 0x20..0x7E. FR-111. */
     fun isPrintableAscii(text: String): Boolean = text.all { it.code in 0x20..0x7E }
 
@@ -131,6 +152,35 @@ object Validation {
 
     /** Uppercase and strip incidental whitespace before matching, mirroring [normaliseUen]. */
     fun normaliseNric(raw: String): String = raw.trim().filter { !it.isWhitespace() }.uppercase()
+
+    /**
+     * A VPA is `<mobile-or-UEN>#<4-letter provider code>`, e.g. `+6591234567#GRAB` or
+     * `201403121W#WISE`. The identifier half is disambiguated by whether it contains a
+     * letter — a valid 8-digit Singapore mobile never does, every UEN format does.
+     *
+     * Returns null when the input cannot be read as a VPA at all (no `#`, malformed
+     * identifier, or a provider code that isn't 4 letters) — a defensive backstop, like
+     * [normaliseMobile]'s, for callers that reach here after [validate] already passed.
+     * An identifier that parses but isn't in [KNOWN_VPA_PROVIDERS] still normalises
+     * successfully; that case is a warning, not a block (see [validate]).
+     */
+    fun normaliseVpa(raw: String): String? {
+        val trimmed = raw.trim()
+        val hashIndex = trimmed.indexOf('#')
+        if (hashIndex < 0) return null
+        val identifierPart = trimmed.substring(0, hashIndex).trim()
+        val providerPart = trimmed.substring(hashIndex + 1).trim().uppercase()
+        if (!VPA_PROVIDER_CODE.matches(providerPart)) return null
+        val identifier =
+            if (identifierPart.any { it.isLetter() }) {
+                val uen = normaliseUen(identifierPart)
+                if (uen.length !in 9..10 || !ALPHANUMERIC.matches(uen)) return null
+                uen
+            } else {
+                normaliseMobile(identifierPart) ?: return null
+            }
+        return "$identifier#$providerPart"
+    }
 
     /**
      * FR-105: exactly two decimal places, no thousands separators and no currency symbol.
@@ -215,6 +265,31 @@ object Validation {
                 when {
                     nric.isEmpty() -> error(Field.PROXY, IssueCode.NRIC_EMPTY)
                     !NRIC.matches(nric) -> error(Field.PROXY, IssueCode.NRIC_BAD_FORMAT)
+                }
+            }
+
+            ProxyType.VPA -> {
+                val hashIndex = rawProxy.indexOf('#')
+                when {
+                    rawProxy.isEmpty() -> error(Field.PROXY, IssueCode.VPA_EMPTY)
+                    hashIndex < 0 -> error(Field.PROXY, IssueCode.VPA_BAD_FORMAT)
+                    else -> {
+                        val identifierPart = rawProxy.substring(0, hashIndex).trim()
+                        val providerPart = rawProxy.substring(hashIndex + 1).trim().uppercase()
+                        val identifierValid =
+                            if (identifierPart.any { it.isLetter() }) {
+                                val uen = normaliseUen(identifierPart)
+                                uen.length in 9..10 && ALPHANUMERIC.matches(uen)
+                            } else {
+                                normaliseMobile(identifierPart) != null
+                            }
+                        when {
+                            !identifierValid || !VPA_PROVIDER_CODE.matches(providerPart) ->
+                                error(Field.PROXY, IssueCode.VPA_BAD_FORMAT)
+                            providerPart !in KNOWN_VPA_PROVIDERS ->
+                                warn(Field.PROXY, IssueCode.VPA_UNRECOGNISED_PROVIDER)
+                        }
+                    }
                 }
             }
         }

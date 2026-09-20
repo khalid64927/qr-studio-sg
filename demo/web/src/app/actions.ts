@@ -13,7 +13,7 @@ import { sg as qrSg } from "@khalid64927/qr-studio-sg-qr";
 const { buildPayNowQr } = paySg.qrstudio.payload.js;
 const { encodeQr, checkContrast, logoSizeBounds } = qrSg.qrstudio.qr.js;
 
-export type ProxyTypeInput = "MOBILE" | "NRIC" | "UEN";
+export type ProxyTypeInput = "MOBILE" | "NRIC" | "UEN" | "VPA";
 
 export interface GenerateQrInput {
   proxyType: ProxyTypeInput;

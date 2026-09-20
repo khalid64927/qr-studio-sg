@@ -73,6 +73,27 @@ class IndependentParserCrossCheckTest {
     }
 
     @Test
+    fun `the independent parser agrees on a VPA proxy`() {
+        val result =
+            PayNowPayloadBuilder.build(
+                PayNowConfig(
+                    proxyType = ProxyType.VPA,
+                    proxyValue = "9123 4567#grab",
+                    expiry = LocalDates.FAR_FUTURE,
+                    merchantName = "Acme Bakery",
+                ),
+                today = LocalDates.TODAY,
+            )
+        val payload = (result as PayloadResult.Success).payload
+        val decoded = decode(payload.raw)
+        val paynow = paynowTemplate(decoded)
+
+        assertEquals(ProxyType.VPA.code, paynow.paymentNetworkSpecific["01"]?.value)
+        assertEquals("+6591234567#GRAB", paynow.paymentNetworkSpecific["02"]?.value)
+        assertEquals(payload.raw.takeLast(4), decoded.crc.value)
+    }
+
+    @Test
     fun `the independent parser agrees across a spread of random configurations`() {
         val random = Random(seed = 20260909)
         repeat(200) { iteration ->

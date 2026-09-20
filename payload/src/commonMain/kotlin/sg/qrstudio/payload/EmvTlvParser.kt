@@ -114,6 +114,7 @@ object PayNowDetector {
                 ProxyType.MOBILE.code -> ProxyType.MOBILE
                 ProxyType.NRIC.code -> ProxyType.NRIC
                 ProxyType.UEN.code -> ProxyType.UEN
+                ProxyType.VPA.code -> ProxyType.VPA
                 else -> return null
             }
         val proxyValue = template.child("02")?.value ?: return null

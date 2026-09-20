@@ -72,6 +72,54 @@ class ValidationTest {
         assertTrue(result.warnings.any { it.code == IssueCode.UEN_UNRECOGNISED_PATTERN })
     }
 
+    // ---- VPA ---------------------------------------------------------------
+
+    @Test
+    fun `a VPA normalises a mobile-based identifier and uppercases the provider`() {
+        listOf(
+            "+6591234567#GRAB" to "+6591234567#GRAB",
+            "91234567#grab" to "+6591234567#GRAB",
+            "9123 4567 # Grab" to "+6591234567#GRAB",
+        ).forEach { (input, expected) ->
+            assertEquals(expected, Validation.normaliseVpa(input), "Failed for '$input'")
+        }
+    }
+
+    @Test
+    fun `a VPA normalises a UEN-based identifier`() {
+        assertEquals("201403121W#WISE", Validation.normaliseVpa("201403121w#wise"))
+    }
+
+    @Test
+    fun `a VPA with no hash, a bad identifier, or a malformed provider code is rejected`() {
+        listOf("91234567GRAB", "+6591234567#GR", "+6591234567#GRAB1", "71234567#GRAB", "#GRAB", "91234567#")
+            .forEach { input -> assertNull(Validation.normaliseVpa(input), "Expected rejection for '$input'") }
+    }
+
+    @Test
+    fun `a well-formed but unrecognised VPA provider warns but does not block`() {
+        val result = Validation.validate(PayNowConfig(ProxyType.VPA, "+6591234567#ZZZZ"), LocalDates.TODAY)
+        assertTrue(result.isValid, "An unfamiliar but well-formed provider code must not block export")
+        assertTrue(result.warnings.any { it.code == IssueCode.VPA_UNRECOGNISED_PROVIDER })
+    }
+
+    @Test
+    fun `all four known VPA providers are accepted without warnings`() {
+        listOf("GRAB", "DASH", "XNAP", "WISE").forEach { provider ->
+            assertEquals(
+                emptyList(),
+                codes(PayNowConfig(ProxyType.VPA, "+6591234567#$provider")),
+                "Unexpected issue for provider $provider",
+            )
+        }
+    }
+
+    @Test
+    fun `an empty VPA is reported distinctly from a malformed one`() {
+        assertTrue(IssueCode.VPA_EMPTY in codes(PayNowConfig(ProxyType.VPA, "")))
+        assertTrue(IssueCode.VPA_BAD_FORMAT in codes(PayNowConfig(ProxyType.VPA, "not-a-vpa")))
+    }
+
     // ---- FR-105 amount ---------------------------------------------------------
 
     @Test
