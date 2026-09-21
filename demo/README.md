@@ -7,12 +7,21 @@ published and why.
 
 Each demo builds a PayNow payload for the same inputs and encodes it into a QR module
 matrix, so the outputs below are directly comparable across platforms. Both exercise all
-three PayNow proxy types — Mobile, UEN, and NRIC/FIN. **NRIC is included for
+four PayNow proxy types — Mobile, UEN, NRIC/FIN, and VPA. **NRIC is included for
 completeness, not because it's known to work**: DBS Digibank and PayLah did not scan a
 proxy-type-1 (NRIC) QR code in manual testing during this project (see the root README's
 Roadmap) — NRIC-based PayNow transfers in those apps appear to be manual-entry only,
 not QR-scannable, as of this testing. The payload is still spec-correct per PayNow's
 EMVCo scheme; whether any bank app resolves it may change.
+
+**VPA** (Virtual Payment Address, proxy type 3) routes to an e-wallet linked to
+PayNow — GrabPay, Dash, Wise, XNAP — instead of a bank account. Its wire value is
+`<mobile-or-UEN>#<PROVIDER>`, e.g. `+6591234567#GRAB`; see
+`payload/src/commonMain/.../Validation.kt`'s `normaliseVpa` for the exact rules
+(identifier disambiguated by whether it contains a letter — mobile if not, UEN if so —
+and an unrecognised-but-well-formed provider code warns rather than blocks, mirroring
+FR-102's UEN philosophy since the provider list will only grow as more non-bank
+financial institutions onboard).
 
 | Platform | Skeleton | Consumes |
 |---|---|---|
@@ -70,7 +79,7 @@ xcrun simctl boot <device-udid>          # xcrun simctl list devices available
 xcrun simctl spawn <device-udid> .build/arm64-apple-ios-simulator/debug/PayNowDemoCLI
 ```
 
-Captured output from exactly that — `main.swift` now loops over all three proxy types:
+Captured output from exactly that — `main.swift` now loops over all four proxy types:
 
 ```
 --- Mobile ---
@@ -90,6 +99,12 @@ Built payload: 00020101021226490009SG.PAYNOW010120210201403121W03010040820310917
 Normalised proxy: 201403121W
 QR module matrix: 61x61, mask pattern 2
 Dark modules: 1388
+
+--- VPA ---
+Built payload: 00020101021226550009SG.PAYNOW010130216+6591234567#GRAB03010040820310917520400005303702540525.505802SG5913Demo Merchant6009Singapore62160112INV-DEMO-00163040486
+Normalised proxy: +65 9123 4567#GRAB
+QR module matrix: 61x61, mask pattern 2
+Dark modules: 1394
 ```
 
 The Mobile and UEN payload strings are byte-identical to the web demo's for the same
@@ -169,6 +184,11 @@ Screenshots — [`../screenshots/`](../screenshots/), same inputs as the web dem
 | [![UEN, Malachite green dot modules](../screenshots/ios-paynow-qr-uen-green-dot.png)](../screenshots/ios-paynow-qr-uen-green-dot.png) | [![Empty state](../screenshots/ios-paynow-qr-empty-state.png)](../screenshots/ios-paynow-qr-empty-state.png) |
 | UEN with the module shape switched to Dot and foreground recoloured to the Malachite accent, drawn live by `QrCanvasView` | Empty state before a proxy value is entered — same placeholder-copy pattern as the web demo |
 
+| |
+|---|
+| [![VPA proxy type](../screenshots/ios-paynow-qr-vpa.png)](../screenshots/ios-paynow-qr-vpa.png) |
+| VPA selected — `91234567#GRAB`, same payload string as the CLI's VPA run |
+
 ## Web
 
 A real Next.js (App Router) app — not just a script. Four sections mirror the Compose
@@ -239,7 +259,7 @@ published GitHub Packages release (see the root README's Publishing section), so
 plain install works with no Gradle/Kotlin toolchain at all:
 
 ```bash
-cd demo/web
+`cd demo/web`
 # .npmrc needs NPM_TOKEN — a GitHub PAT with read:packages — in your shell env,
 # since GitHub Packages requires auth even to install a public package.
 npm install
@@ -251,7 +271,7 @@ npm run dev                 # http://localhost:3000
 works via the local-tarball path:
 
 ```bash
-./setup-local-packages.sh   # builds :payload/:qr, packs and installs them locally
+`./setup-local-packages.sh`   # builds :payload/:qr, packs and installs them locally
 ```
 
 This runs the same `jsNodeProductionLibraryDistribution` Gradle tasks as the other
@@ -269,13 +289,14 @@ the dependency back to a local `file:` path.
 
 Verified with a real browser session against `npm run build && npm run start`: typing a
 mobile number produces a live QR render, the raw EMVCo payload, and the normalised proxy
-display; switching to UEN and to NRIC/FIN and typing an invalid one surfaces the real
+display; switching to UEN, NRIC/FIN and VPA and typing an invalid one surfaces the real
 validation error inline ("A Singapore mobile number has 8 digits…" / UEN-specific /
-NRIC-specific messages); changing foreground/background/eye colour, module/eye shape and
-the logo (toggle, size, shape) all re-render live and correctly, including the contrast
-banner flipping to OK/WARNING/BLOCKED in real time as colours change. No console errors.
-Same payload string as the iOS demo for the same inputs — for all three proxy types, not
-just Mobile.
+NRIC-specific / VPA-specific messages, including the VPA warning banner for a
+well-formed but unrecognised provider code); changing foreground/background/eye colour,
+module/eye shape and the logo (toggle, size, shape) all re-render live and correctly,
+including the contrast banner flipping to OK/WARNING/BLOCKED in real time as colours
+change. No console errors. Same payload string as the iOS demo for the same inputs —
+for all four proxy types, not just Mobile.
 
 `:qr`'s `js` facade (`qr/src/jsMain/kotlin/…/js/QrEncoderJs.kt`) grew four additions for
 this: `QrModuleMatrixJs.isFinder(x, y)` (which modules are eyes, for `eyeStyle` to apply

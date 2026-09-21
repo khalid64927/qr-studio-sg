@@ -13,6 +13,7 @@ struct ContentView: View {
         case mobile = "Mobile"
         case nric = "NRIC/FIN"
         case uen = "UEN"
+        case vpa = "VPA"
         var id: String { rawValue }
 
         var kotlinType: ProxyType {
@@ -20,6 +21,7 @@ struct ContentView: View {
             case .mobile: return .mobile
             case .nric: return .nric
             case .uen: return .uen
+            case .vpa: return .vpa
             }
         }
 
@@ -28,6 +30,7 @@ struct ContentView: View {
             case .mobile: return "9123 4567"
             case .nric: return "S1234567D"
             case .uen: return "201403121W"
+            case .vpa: return "+6591234567#GRAB"
             }
         }
     }

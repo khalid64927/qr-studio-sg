@@ -98,6 +98,20 @@ object PayNowPayloadBuilder {
 
                 ProxyType.NRIC -> Validation.normaliseNric(config.proxyValue)
                 ProxyType.UEN -> Validation.normaliseUen(config.proxyValue)
+
+                ProxyType.VPA ->
+                    Validation.normaliseVpa(config.proxyValue)
+                        ?: return PayloadResult.Invalid(
+                            listOf(
+                                ValidationIssue(
+                                    Field.PROXY,
+                                    IssueCode.VPA_BAD_FORMAT,
+                                    ValidationIssue.Severity.ERROR,
+                                    PayloadStrings.of(IssueCode.VPA_BAD_FORMAT),
+                                ),
+                            ),
+                            validation.warnings,
+                        )
             }
 
         val cents =
@@ -253,5 +267,23 @@ object PayNowPayloadBuilder {
 
             ProxyType.NRIC -> normalised
             ProxyType.UEN -> normalised
+
+            ProxyType.VPA -> {
+                val hashIndex = normalised.indexOf('#')
+                if (hashIndex < 0) {
+                    normalised
+                } else {
+                    val identifier = normalised.substring(0, hashIndex)
+                    val provider = normalised.substring(hashIndex + 1)
+                    val displayIdentifier =
+                        if (identifier.startsWith("+65")) {
+                            val digits = identifier.removePrefix("+65")
+                            "+65 ${digits.take(4)} ${digits.drop(4)}"
+                        } else {
+                            identifier
+                        }
+                    "$displayIdentifier#$provider"
+                }
+            }
         }
 }

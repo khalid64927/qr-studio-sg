@@ -15,12 +15,15 @@ object Strings {
     const val PROXY_TYPE_MOBILE = "Mobile number"
     const val PROXY_TYPE_NRIC = "NRIC/FIN"
     const val PROXY_TYPE_UEN = "UEN"
+    const val PROXY_TYPE_VPA = "VPA / e-wallet"
     const val PROXY_LABEL_MOBILE = "Mobile number"
     const val PROXY_LABEL_NRIC = "NRIC/FIN"
     const val PROXY_LABEL_UEN = "UEN"
+    const val PROXY_LABEL_VPA = "Virtual Payment Address"
     const val PROXY_PLACEHOLDER_MOBILE = "9123 4567"
     const val PROXY_PLACEHOLDER_NRIC = "S1234567D"
     const val PROXY_PLACEHOLDER_UEN = "201403121W"
+    const val PROXY_PLACEHOLDER_VPA = "+6591234567#GRAB"
 
     const val AMOUNT_LABEL = "Amount (SGD)"
     const val AMOUNT_PLACEHOLDER = "Leave blank for any amount"
@@ -37,6 +40,7 @@ object Strings {
     const val PROXY_EXAMPLE_MOBILE = "e.g. 9123 4567"
     const val PROXY_EXAMPLE_NRIC = "e.g. S1234567D"
     const val PROXY_EXAMPLE_UEN = "e.g. 201403121W"
+    const val PROXY_EXAMPLE_VPA = "e.g. +6591234567#GRAB — a mobile number or UEN linked to an e-wallet"
 
     const val ERROR_CORRECTION_LABEL = "Error correction"
 
@@ -73,6 +77,7 @@ object Strings {
             ProxyType.MOBILE -> PROXY_TYPE_MOBILE
             ProxyType.NRIC -> PROXY_TYPE_NRIC
             ProxyType.UEN -> PROXY_TYPE_UEN
+            ProxyType.VPA -> PROXY_TYPE_VPA
         }
 
     fun proxyLabel(type: ProxyType) =
@@ -80,6 +85,7 @@ object Strings {
             ProxyType.MOBILE -> PROXY_LABEL_MOBILE
             ProxyType.NRIC -> PROXY_LABEL_NRIC
             ProxyType.UEN -> PROXY_LABEL_UEN
+            ProxyType.VPA -> PROXY_LABEL_VPA
         }
 
     fun proxyPlaceholder(type: ProxyType) =
@@ -87,6 +93,7 @@ object Strings {
             ProxyType.MOBILE -> PROXY_PLACEHOLDER_MOBILE
             ProxyType.NRIC -> PROXY_PLACEHOLDER_NRIC
             ProxyType.UEN -> PROXY_PLACEHOLDER_UEN
+            ProxyType.VPA -> PROXY_PLACEHOLDER_VPA
         }
 
     fun proxyExample(type: ProxyType) =
@@ -94,5 +101,6 @@ object Strings {
             ProxyType.MOBILE -> PROXY_EXAMPLE_MOBILE
             ProxyType.NRIC -> PROXY_EXAMPLE_NRIC
             ProxyType.UEN -> PROXY_EXAMPLE_UEN
+            ProxyType.VPA -> PROXY_EXAMPLE_VPA
         }
 }

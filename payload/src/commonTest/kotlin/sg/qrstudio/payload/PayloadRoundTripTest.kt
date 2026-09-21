@@ -45,6 +45,14 @@ class PayloadRoundTripTest {
                             repeat(9) { append(random.nextInt(10)) }
                             append(('A'..'Z').random(random))
                         }
+
+                    ProxyType.VPA ->
+                        buildString {
+                            append(if (random.nextBoolean()) '8' else '9')
+                            repeat(7) { append(random.nextInt(10)) }
+                            append('#')
+                            append((1..4).map { ('A'..'Z').random(random) }.joinToString(""))
+                        }
                 }
 
             val hasAmount = random.nextBoolean()

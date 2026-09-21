@@ -16,6 +16,7 @@ let examples = [
     ProxyExample(label: "Mobile", proxyType: .mobile, proxyValue: "91234567"),
     ProxyExample(label: "NRIC/FIN", proxyType: .nric, proxyValue: "S1234567D"),
     ProxyExample(label: "UEN", proxyType: .uen, proxyValue: "201403121W"),
+    ProxyExample(label: "VPA", proxyType: .vpa, proxyValue: "91234567#GRAB"),
 ]
 
 let today = Kotlinx_datetimeLocalDate(year: 2026, month: 9, day: 17)

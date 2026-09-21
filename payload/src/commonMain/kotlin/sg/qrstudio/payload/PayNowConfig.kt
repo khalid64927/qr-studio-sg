@@ -10,7 +10,9 @@ import kotlinx.datetime.plus
  * D1 / FR-104: this is always an explicit user choice. The reference implementation
  * hardcodes UEN; that behaviour is deliberately not carried over.
  *
- * Proxy type 3 (VPA) exists in the scheme but is out of scope for v1.
+ * [VPA] (Virtual Payment Address) routes to an e-wallet linked to PayNow — e.g. GrabPay,
+ * Dash, Wise — rather than a bank account. Its wire value is `<mobile-or-UEN>#<PROVIDER>`,
+ * e.g. `+6591234567#GRAB`; see [Validation.normaliseVpa].
  */
 enum class ProxyType(
     val code: String,
@@ -18,6 +20,7 @@ enum class ProxyType(
     MOBILE("0"),
     NRIC("1"),
     UEN("2"),
+    VPA("3"),
 }
 
 /**

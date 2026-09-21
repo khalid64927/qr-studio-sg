@@ -689,6 +689,7 @@ private fun paySummary(state: QrStudioUiState): String? {
             ProxyType.MOBILE -> "Mobile"
             ProxyType.NRIC -> "NRIC/FIN"
             ProxyType.UEN -> "UEN"
+            ProxyType.VPA -> "VPA"
         }
     return "$type · ${state.proxyValue}"
 }
